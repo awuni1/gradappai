@@ -1,0 +1,22 @@
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Android/PWA icon -->
+  <!-- Background -->
+  <rect width="192" height="192" fill="#ffffff"/>
+  
+  <!-- Cap flat top -->
+  <ellipse cx="96" cy="87" rx="80" ry="19" fill="#3b82f6"/>
+  
+  <!-- Cap depth -->
+  <path d="M16 87 Q96 48 176 87 Q96 126 16 87" fill="#2563eb"/>
+  
+  <!-- Graduation tassel -->
+  <circle cx="144" cy="77" r="8" fill="#fbbf24"/>
+  <line x1="144" y1="85" x2="162" y2="125" stroke="#f59e0b" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="162" cy="125" r="6" fill="#f59e0b"/>
+  
+  <!-- Cap center -->
+  <circle cx="96" cy="87" r="6" fill="#1e40af"/>
+  
+  <!-- Shadow -->
+  <ellipse cx="96" cy="92" rx="75" ry="16" fill="#2563eb" opacity="0.2"/>
+</svg>

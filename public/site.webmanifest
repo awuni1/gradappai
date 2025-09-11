@@ -1,0 +1,96 @@
+{
+  "name": "GradApp - Graduate School Platform",
+  "short_name": "GradApp",
+  "description": "Streamline your graduate school journey with smart university matching, scholarship discovery, and faculty connections.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["education", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/favicon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "form_factor": "wide",
+      "label": "GradApp Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your application progress and deadlines",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/favicon-192x192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Universities",
+      "short_name": "Universities",
+      "description": "Find matched universities and programs",
+      "url": "/matched-universities",
+      "icons": [
+        {
+          "src": "/favicon-192x192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "GradNet",
+      "short_name": "GradNet",
+      "description": "Connect with students and mentors",
+      "url": "/gradnet",
+      "icons": [
+        {
+          "src": "/favicon-192x192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Mentor Platform",
+      "short_name": "Mentor",
+      "description": "Access mentor dashboard and tools",
+      "url": "/mentor/dashboard",
+      "icons": [
+        {
+          "src": "/favicon-192x192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

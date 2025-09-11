@@ -1,0 +1,110 @@
+# Kong Gateway Configuration for Supabase
+# This configuration routes requests to the appropriate services
+
+_format_version: "2.1"
+
+services:
+  # Authentication service
+  - name: auth
+    url: http://auth:9999
+    routes:
+      - name: auth
+        strip_path: true
+        paths:
+          - /auth/v1/
+
+  # REST API service
+  - name: rest
+    url: http://rest:3000
+    routes:
+      - name: rest
+        strip_path: true
+        paths:
+          - /rest/v1/
+
+  # Realtime service
+  - name: realtime
+    url: http://realtime:4000
+    routes:
+      - name: realtime
+        strip_path: true
+        paths:
+          - /realtime/v1/
+
+  # Storage service
+  - name: storage
+    url: http://storage:5000
+    routes:
+      - name: storage
+        strip_path: true
+        paths:
+          - /storage/v1/
+
+  # Edge Functions service
+  - name: functions
+    url: http://edge-functions:8000
+    routes:
+      - name: functions
+        strip_path: true
+        paths:
+          - /functions/v1/
+
+  # Database metadata service
+  - name: meta
+    url: http://meta:8080
+    routes:
+      - name: meta
+        strip_path: true
+        paths:
+          - /pg/
+
+  # Analytics service
+  - name: analytics
+    url: http://analytics:4000
+    routes:
+      - name: analytics
+        strip_path: true
+        paths:
+          - /analytics/v1/
+
+plugins:
+  # CORS plugin for cross-origin requests
+  - name: cors
+    config:
+      origins:
+        - "http://localhost:3000"
+        - "http://localhost:3001"
+        - "http://localhost:5173"
+        - "http://gradapp-dev:3000"
+        - "http://gradapp-frontend:3000"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - X-Auth-Token
+        - Authorization
+        - X-Requested-With
+        - apikey
+        - x-client-info
+      exposed_headers:
+        - X-Auth-Token
+      credentials: true
+      max_age: 3600
+
+  # Request transformer to add headers
+  - name: request-transformer
+    config:
+      add:
+        headers:
+          - "X-Forwarded-Proto: http"
+          - "X-Forwarded-Host: localhost:8000"

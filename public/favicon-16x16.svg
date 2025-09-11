@@ -1,0 +1,13 @@
+<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simplified graduation cap for 16x16 -->
+  <!-- Cap top -->
+  <ellipse cx="8" cy="7" rx="7" ry="1.8" fill="#3b82f6"/>
+  <!-- Cap depth -->
+  <path d="M1 7 Q8 3.5 15 7 Q8 10.5 1 7" fill="#2563eb"/>
+  <!-- Tassel -->
+  <circle cx="12" cy="6.3" r="0.7" fill="#fbbf24"/>
+  <line x1="12" y1="7" x2="13.5" y2="11" stroke="#f59e0b" stroke-width="0.7"/>
+  <circle cx="13.5" cy="11" r="0.5" fill="#f59e0b"/>
+  <!-- Center button -->
+  <circle cx="8" cy="7" r="0.5" fill="#1e40af"/>
+</svg>

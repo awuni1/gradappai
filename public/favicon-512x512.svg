@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- High resolution PWA icon -->
+  <!-- Background -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  
+  <!-- Cap flat top -->
+  <ellipse cx="256" cy="230" rx="215" ry="50" fill="#3b82f6"/>
+  
+  <!-- Cap depth -->
+  <path d="M41 230 Q256 128 471 230 Q256 332 41 230" fill="#2563eb"/>
+  
+  <!-- Graduation tassel -->
+  <circle cx="384" cy="205" r="20" fill="#fbbf24"/>
+  <line x1="384" y1="225" x2="430" y2="330" stroke="#f59e0b" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="430" cy="330" r="15" fill="#f59e0b"/>
+  
+  <!-- Cap center button -->
+  <circle cx="256" cy="230" r="12" fill="#1e40af"/>
+  
+  <!-- Additional depth and highlights -->
+  <ellipse cx="256" cy="240" rx="200" ry="45" fill="#2563eb" opacity="0.2"/>
+  <ellipse cx="256" cy="225" rx="210" ry="48" fill="#60a5fa" opacity="0.3"/>
+  
+  <!-- Subtle graduation lines on cap -->
+  <line x1="156" y1="220" x2="356" y2="220" stroke="#1e40af" stroke-width="3" opacity="0.5"/>
+  <line x1="171" y1="235" x2="341" y2="235" stroke="#1e40af" stroke-width="3" opacity="0.3"/>
+</svg>

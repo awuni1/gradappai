@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Diagnostic Tool - GradApp</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .test-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        .test-card.running {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        .test-card.success {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .test-card.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .status {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .status.running { background: #007bff; color: white; }
+        .status.success { background: #28a745; color: white; }
+        .status.error { background: #dc3545; color: white; }
+        .status.pending { background: #6c757d; color: white; }
+        .details {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .run-btn {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin: 20px 0;
+        }
+        .run-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .fix-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .progress {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Network Diagnostic Tool</h1>
+        <p>This tool will help diagnose the "Failed to fetch" error and provide solutions.</p>
+        
+        <div class="progress">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+        </div>
+        
+        <button class="run-btn" id="runBtn" onclick="runDiagnostics()">🚀 Run Full Diagnostic</button>
+        
+        <div class="test-card" id="test1">
+            <div class="status pending" id="status1">PENDING</div>
+            <h3>Test 1: Basic Connectivity</h3>
+            <p>Testing if we can reach the internet and Supabase domain</p>
+            <div class="details" id="details1">Waiting to run...</div>
+        </div>
+        
+        <div class="test-card" id="test2">
+            <div class="status pending" id="status2">PENDING</div>
+            <h3>Test 2: CORS & Headers</h3>
+            <p>Checking if CORS is working and headers are properly set</p>
+            <div class="details" id="details2">Waiting to run...</div>
+        </div>
+        
+        <div class="test-card" id="test3">
+            <div class="status pending" id="status3">PENDING</div>
+            <h3>Test 3: Supabase Auth Endpoint</h3>
+            <p>Testing direct connection to Supabase authentication</p>
+            <div class="details" id="details3">Waiting to run...</div>
+        </div>
+        
+        <div class="test-card" id="test4">
+            <div class="status pending" id="status4">PENDING</div>
+            <h3>Test 4: Alternative Signup Method</h3>
+            <p>Testing with different fetch configurations</p>
+            <div class="details" id="details4">Waiting to run...</div>
+        </div>
+        
+        <div id="solutionsSection" style="display: none;">
+            <h2>🔨 Recommended Solutions</h2>
+            <div id="solutions"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://yeqfsjzcvqgannxdivau.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcWZzanpjdnFnYW5ueGRpdmF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwOTUzNTUsImV4cCI6MjA3MDY3MTM1NX0.txRkp0zX5eOn1MjcoIK7c6SfE6GgmNMp38Jxhxp68BY";
+        
+        let testResults = {};
+        let solutions = [];
+        
+        function updateStatus(testId, status, message, details = '') {
+            const statusEl = document.getElementById(`status${testId}`);
+            const detailsEl = document.getElementById(`details${testId}`);
+            const cardEl = document.getElementById(`test${testId}`);
+            
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = status.toUpperCase();
+            
+            cardEl.className = `test-card ${status}`;
+            
+            if (details) {
+                detailsEl.innerHTML = `<strong>${message}</strong><br><pre>${details}</pre>`;
+            } else {
+                detailsEl.textContent = message;
+            }
+        }
+        
+        function updateProgress(percentage) {
+            document.getElementById('progressBar').style.width = percentage + '%';
+        }
+        
+        async function test1_BasicConnectivity() {
+            updateStatus(1, 'running', 'Testing basic connectivity...');
+            
+            try {
+                // Test 1a: Can we reach a basic endpoint?
+                const startTime = Date.now();
+                const response = await fetch('https://httpbin.org/get', {
+                    method: 'GET',
+                    timeout: 10000
+                });
+                const endTime = Date.now();
+                
+                if (response.ok) {
+                    updateStatus(1, 'success', 'Basic connectivity working', 
+                        `✅ Successfully reached external endpoint
+Response time: ${endTime - startTime}ms
+Status: ${response.status}
+Headers: ${JSON.stringify(Object.fromEntries(response.headers), null, 2)}`);
+                    testResults.connectivity = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                updateStatus(1, 'error', 'Connectivity failed', 
+                    `❌ Error: ${error.message}
+Possible causes:
+- No internet connection
+- Firewall blocking requests
+- Proxy configuration issues`);
+                testResults.connectivity = false;
+                solutions.push({
+                    title: "Fix Internet Connectivity",
+                    actions: [
+                        "Check your internet connection",
+                        "Disable VPN temporarily",
+                        "Check firewall settings",
+                        "Try a different network"
+                    ]
+                });
+            }
+        }
+        
+        async function test2_CORS() {
+            updateStatus(2, 'running', 'Testing CORS and headers...');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+                
+                const corsHeaders = {
+                    'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+                    'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
+                    'access-control-allow-headers': response.headers.get('access-control-allow-headers')
+                };
+                
+                updateStatus(2, 'success', 'CORS working correctly', 
+                    `✅ CORS headers present:
+${JSON.stringify(corsHeaders, null, 2)}
+Status: ${response.status}`);
+                testResults.cors = true;
+                
+            } catch (error) {
+                updateStatus(2, 'error', 'CORS or headers issue', 
+                    `❌ Error: ${error.message}
+This might be a CORS policy issue or blocked request`);
+                testResults.cors = false;
+                solutions.push({
+                    title: "Fix CORS Issues",
+                    actions: [
+                        "Try accessing from localhost instead of 127.0.0.1",
+                        "Clear browser cache and cookies",
+                        "Disable browser extensions temporarily",
+                        "Try incognito/private browsing mode"
+                    ]
+                });
+            }
+        }
+        
+        async function test3_SupabaseAuth() {
+            updateStatus(3, 'running', 'Testing Supabase auth endpoint...');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    },
+                    body: JSON.stringify({
+                        email: `test-${Date.now()}@example.com`,
+                        password: 'testpassword123'
+                    })
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.status === 400 && responseText.includes('email')) {
+                    updateStatus(3, 'success', 'Auth endpoint accessible', 
+                        `✅ Supabase auth endpoint is working
+Status: ${response.status}
+Response: ${responseText}
+(The 400 error is expected for test emails)`);
+                    testResults.auth = true;
+                } else if (response.status === 200 || response.status === 201) {
+                    updateStatus(3, 'success', 'Auth endpoint working perfectly', 
+                        `✅ Signup would work
+Status: ${response.status}
+Response: ${responseText}`);
+                    testResults.auth = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${responseText}`);
+                }
+                
+            } catch (error) {
+                updateStatus(3, 'error', 'Supabase auth endpoint failed', 
+                    `❌ Error: ${error.message}
+Cannot reach Supabase authentication service`);
+                testResults.auth = false;
+                solutions.push({
+                    title: "Fix Supabase Connection",
+                    actions: [
+                        "Check if Supabase service is down",
+                        "Verify API keys are correct",
+                        "Try different DNS servers (8.8.8.8, 1.1.1.1)",
+                        "Check if your ISP blocks Supabase"
+                    ]
+                });
+            }
+        }
+        
+        async function test4_AlternativeMethod() {
+            updateStatus(4, 'running', 'Testing alternative signup methods...');
+            
+            // Test with different fetch configurations
+            const methods = [
+                {
+                    name: 'Standard fetch',
+                    config: {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email: `test-alt-${Date.now()}@gmail.com`,
+                            password: 'password123'
+                        })
+                    }
+                },
+                {
+                    name: 'Fetch with no-cache',
+                    config: {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        },
+                        cache: 'no-cache',
+                        body: JSON.stringify({
+                            email: `test-nocache-${Date.now()}@gmail.com`,
+                            password: 'password123'
+                        })
+                    }
+                }
+            ];
+            
+            let results = [];
+            
+            for (let method of methods) {
+                try {
+                    const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, method.config);
+                    const responseText = await response.text();
+                    results.push(`✅ ${method.name}: Status ${response.status}`);
+                } catch (error) {
+                    results.push(`❌ ${method.name}: ${error.message}`);
+                }
+            }
+            
+            const allSuccessful = results.every(r => r.includes('✅'));
+            
+            if (allSuccessful) {
+                updateStatus(4, 'success', 'Alternative methods working', results.join('\n'));
+                testResults.alternative = true;
+            } else {
+                updateStatus(4, 'error', 'Alternative methods also failing', results.join('\n'));
+                testResults.alternative = false;
+            }
+        }
+        
+        async function runDiagnostics() {
+            const runBtn = document.getElementById('runBtn');
+            runBtn.disabled = true;
+            runBtn.textContent = '🔄 Running Diagnostics...';
+            
+            solutions = [];
+            
+            try {
+                updateProgress(10);
+                await test1_BasicConnectivity();
+                
+                updateProgress(35);
+                await test2_CORS();
+                
+                updateProgress(60);
+                await test3_SupabaseAuth();
+                
+                updateProgress(85);
+                await test4_AlternativeMethod();
+                
+                updateProgress(100);
+                
+                // Show solutions
+                showSolutions();
+                
+            } catch (error) {
+                console.error('Diagnostic error:', error);
+            } finally {
+                runBtn.disabled = false;
+                runBtn.textContent = '🚀 Run Full Diagnostic';
+            }
+        }
+        
+        function showSolutions() {
+            const solutionsSection = document.getElementById('solutionsSection');
+            const solutionsDiv = document.getElementById('solutions');
+            
+            if (solutions.length === 0) {
+                solutions.push({
+                    title: "All Tests Passed! ✅",
+                    actions: [
+                        "The signup should work in the main app",
+                        "If you're still having issues, try clearing browser cache",
+                        "Restart the development server",
+                        "Check browser console for specific errors"
+                    ]
+                });
+            }
+            
+            let solutionsHTML = '';
+            solutions.forEach((solution, index) => {
+                solutionsHTML += `
+                    <div class="test-card">
+                        <h3>${solution.title}</h3>
+                        <ul>
+                            ${solution.actions.map(action => `<li>${action}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            });
+            
+            solutionsDiv.innerHTML = solutionsHTML;
+            solutionsSection.style.display = 'block';
+        }
+        
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            setTimeout(runDiagnostics, 1000);
+        });
+    </script>
+</body>
+</html>

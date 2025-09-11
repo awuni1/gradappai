@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification - GradApp</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        p {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .button {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            margin: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        .manual-link {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📧</div>
+        <h1>Email Verification Fix</h1>
+        <p>
+            The email confirmation link is trying to redirect to the wrong port. 
+            Don't worry - this is an easy fix!
+        </p>
+        
+        <div class="manual-link" id="fixedLink">
+            Loading fixed link...
+        </div>
+        
+        <div>
+            <a href="#" id="redirectButton" class="button">
+                🔗 Click Here to Complete Verification
+            </a>
+        </div>
+        
+        <p style="font-size: 0.9em; margin-top: 30px;">
+            <strong>What happened?</strong><br>
+            The email link points to port 3000, but the app runs on port 3001.
+            This redirect fixes that automatically.
+        </p>
+    </div>
+
+    <script>
+        // Get the current URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentUrl = window.location.href;
+        
+        // Fix the URL by changing port 3000 to 3001
+        let fixedUrl = currentUrl.replace('localhost:3000', 'localhost:3001');
+        
+        // If we're already on 3001, construct the proper auth URL
+        if (window.location.port === '3001') {
+            // Extract token parameters from URL
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            const type = hashParams.get('type');
+            
+            if (accessToken && type === 'signup') {
+                fixedUrl = `${window.location.origin}/auth#access_token=${accessToken}&expires_in=3600&refresh_token=${refreshToken}&token_type=bearer&type=signup`;
+            } else {
+                fixedUrl = `${window.location.origin}/auth`;
+            }
+        }
+        
+        // Update the display and button
+        document.getElementById('fixedLink').textContent = fixedUrl;
+        document.getElementById('redirectButton').href = fixedUrl;
+        
+        // Auto-redirect after 3 seconds
+        setTimeout(() => {
+            window.location.href = fixedUrl;
+        }, 3000);
+        
+        // Show countdown
+        let countdown = 3;
+        const button = document.getElementById('redirectButton');
+        const interval = setInterval(() => {
+            button.textContent = `🔗 Redirecting in ${countdown}s...`;
+            countdown--;
+            if (countdown < 0) {
+                clearInterval(interval);
+                button.textContent = '🔗 Redirecting...';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <!-- High quality graduation cap for Apple touch icon -->
+  <!-- Background circle -->
+  <rect width="180" height="180" rx="30" fill="#f8fafc"/>
+  
+  <!-- Cap flat top -->
+  <ellipse cx="90" cy="81" rx="75" ry="18" fill="#3b82f6"/>
+  
+  <!-- Cap depth/dimension -->
+  <path d="M15 81 Q90 45 165 81 Q90 117 15 81" fill="#2563eb"/>
+  
+  <!-- Graduation tassel -->
+  <circle cx="135" cy="73" r="7" fill="#fbbf24"/>
+  <line x1="135" y1="80" x2="150" y2="117" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="150" cy="117" r="5" fill="#f59e0b"/>
+  
+  <!-- Cap center button -->
+  <circle cx="90" cy="81" r="5" fill="#1e40af"/>
+  
+  <!-- Additional depth lines for better definition -->
+  <ellipse cx="90" cy="85" rx="70" ry="15" fill="#2563eb" opacity="0.3"/>
+</svg>

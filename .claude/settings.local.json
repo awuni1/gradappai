@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(supabase:*)",
+      "Bash(docker:*)",
+      "Bash(where:*)",
+      "Bash(curl:*)",
+      "Bash(npx supabase:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "mcp__serena",
+      "Read(//c/Users/USER/Downloads/**)",
+      "Read(//c/Users/USER/OneDrive/Imágenes/Screenshots/**)",
+      "Bash(find:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "C:\\d C:\\Users\\USER\\OneDrive\\Desktop\\Projects"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}
