@@ -75,6 +75,8 @@ export default function UniversityMatching() {
     testScores: { gre: 0, toefl: 0, ielts: 0 },
     researchInterests: [] as string[],
     targetDegree: '',
+    currentInstitution: '',
+    currentDegree: '',
     preferences: {
       countries: [] as string[],
       locations: [] as string[],
@@ -207,248 +209,163 @@ export default function UniversityMatching() {
     }
   }, [user]);
 
-  // Load user data and universities on mount
+  // Load user data directly from database - no fallbacks or mock data
   useEffect(() => {
-    const initializeData = async () => {
-      console.warn('🔍 DEBUG: initializeData called', { 
-        hasUser: Boolean(user), 
-        isInitializing, 
-        initializedForUser, 
-        userId: user?.id 
-      });
-      
+    const loadRealUserData = async () => {
       if (!user || isInitializing || initializedForUser === user.id) {
-        console.warn('🔍 DEBUG: Skipping initializeData', { 
-          hasUser: Boolean(user), 
-          isInitializing, 
-          initializedForUser, 
-          userId: user?.id 
-        });
         return;
       }
       
       setIsInitializing(true);
       setInitializedForUser(user.id);
+      setLoading(true);
       
       try {
+        console.log('📊 Loading REAL user data from database for:', user.id);
         
+        // Load user profile data directly from database
+        const { data: userProfileData } = await supabase
+          .from('user_profiles')
+          .select('full_name, email')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // Load academic profile data
+        const { data: academicData } = await supabase
+          .from('academic_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // Load research interests
+        const { data: researchInterestsData } = await supabase
+          .from('user_research_interests')
+          .select(`research_interests!inner(name, category)`)
+          .eq('user_id', user.id);
+
+        // Load latest CV analysis
+        const { data: cvAnalysisData } = await supabase
+          .from('cv_analysis')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('processing_status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        console.log('📊 Database data loaded:', {
+          userProfile: Boolean(userProfileData),
+          academicProfile: Boolean(academicData),
+          cvAnalysis: Boolean(cvAnalysisData),
+          researchInterests: researchInterestsData?.length || 0
+        });
+
+        // Extract research interest names
+        const researchNames = researchInterestsData?.map(ri => ri.research_interests?.name).filter(Boolean) || [];
+
+        // Set user profile from REAL database data only
+        setUserProfile({
+          gpa: academicData?.current_gpa || cvAnalysisData?.personal_info?.gpa || 0,
+          testScores: {
+            gre: academicData?.gre_quantitative || cvAnalysisData?.test_scores?.gre_quantitative || 0,
+            toefl: academicData?.toefl_score || cvAnalysisData?.test_scores?.toefl || 0,
+            ielts: academicData?.ielts_score || cvAnalysisData?.test_scores?.ielts || 0
+          },
+          researchInterests: researchNames,
+          targetDegree: academicData?.current_field_of_study || cvAnalysisData?.education?.[0]?.field || '',
+          currentInstitution: academicData?.current_institution || cvAnalysisData?.education?.[0]?.institution || '',
+          currentDegree: academicData?.current_degree || cvAnalysisData?.education?.[0]?.degree || '',
+          preferences: {
+            countries: [],
+            locations: [],
+            universityTypes: [],
+            maxTuition: undefined,
+            minAdmissionRate: undefined
+          }
+        });
+
+        // Set user profile display data from REAL database data only
+        setUserProfileData({
+          name: userProfileData?.full_name || 
+                `${academicData?.first_name || ''} ${academicData?.last_name || ''}`.trim() ||
+                cvAnalysisData?.personal_info?.name || '',
+          email: userProfileData?.email || user?.email || '',
+          onboarding_completed: Boolean(academicData)
+        });
+
+        // Set CV analysis if available
+        if (cvAnalysisData) {
+          setCvAnalysis(cvAnalysisData);
+        }
+
+        console.log('✅ Real user profile loaded:', {
+          name: userProfileData?.full_name || `${academicData?.first_name || ''} ${academicData?.last_name || ''}`.trim(),
+          gpa: academicData?.current_gpa || cvAnalysisData?.personal_info?.gpa,
+          field: academicData?.current_field_of_study,
+          researchInterests: researchNames.length,
+          hasCV: Boolean(cvAnalysisData)
+        });
+
+        // Load existing matches
         try {
-          // Load existing matches
           const existingMatches = await universityMatchingService.getUserMatches(user.id);
           setMatches(existingMatches);
         } catch (error) {
           console.error('❌ Error loading matches:', error);
+          setMatches([]); // Empty array, no mock data
         }
 
-        // Use session data instead of direct database calls for better performance
-        console.log('🔍 DEBUG: Using session data for user profile');
-        console.log('🔍 DEBUG: Session data available:', { 
-          hasSessionData: Boolean(sessionData),
-          hasAcademicProfile: Boolean(academicProfile), 
-          hasResearchInterests: Boolean(researchInterests),
-          researchInterestsCount: researchInterests?.length || 0
-        });
-        
+        // Load universities
         try {
-          if (sessionData || academicProfile) {
-            // Use session data from SessionContext
-            const profile = sessionData?.profile;
-            const academic = academicProfile;
-            const interests = researchInterests || [];
-            
-            console.log('🔍 DEBUG: Session profile data:', { profile, academic, interests });
-            console.log('🔍 DEBUG: Academic profile GPA values:', {
-              current_gpa: academic?.current_gpa,
-              gpa: academic?.gpa,
-              all_keys: academic ? Object.keys(academic) : 'no academic data'
-            });
-            
-            // Extract research interests names
-            const researchInterestNames = interests.map((interest: any) => 
-              interest?.name || interest?.title || interest
-            ).filter(Boolean);
-            
-            // Set user profile from session data
-            setUserProfile({
-              gpa: academic?.current_gpa || academic?.gpa || academic?.currentGpa || 0,
-              testScores: {
-                gre: academic?.gre_quantitative || 0,
-                toefl: academic?.toefl_score || 0,
-                ielts: academic?.ielts_score || 0
-              },
-              researchInterests: researchInterestNames.length > 0 ? researchInterestNames : 
-                                (academic?.targetField || academic?.current_field_of_study ? [academic.targetField || academic.current_field_of_study] : []),
-              targetDegree: academic?.targetField || academic?.current_field_of_study || academic?.target_field || '',
-              preferences: {
-                countries: [],
-                locations: [],
-                universityTypes: [],
-                maxTuition: undefined,
-                minAdmissionRate: undefined
-              }
-            });
-            
-            // Store the user profile data for display
-            setUserProfileData({
-              name: academic?.name || `${academic?.firstName || ''} ${academic?.lastName || ''}`.trim() || profile?.full_name || '',
-              email: profile?.email || user?.email || '',
-              onboarding_completed: sessionData?.onboardingComplete || false
-            });
-            
-            const gpaValue = academic?.current_gpa || academic?.gpa || academic?.currentGpa;
-            console.log('✅ Profile data loaded from session:', {
-              name: academic?.name || `${academic?.firstName || ''} ${academic?.lastName || ''}`.trim(),
-              gpa: gpaValue,
-              targetDegree: academic?.targetField || academic?.current_field_of_study,
-              researchInterests: researchInterestNames
-            });
-            console.log('🔍 GPA Detection Status:', {
-              current_gpa: academic?.current_gpa,
-              gpa: academic?.gpa,
-              currentGpa: academic?.currentGpa,
-              finalGpaValue: gpaValue,
-              isZero: gpaValue === 0,
-              willShowNotSet: !gpaValue || gpaValue === 0
-            });
-            
-            setProfileDataLoaded(true);
-          } else {
-            console.warn('⚠️ DEBUG: No session data available, using fallback data loading');
-            
-            // Fallback to direct database queries if session data is not available
-            const { data: userProfileData, error: profileError } = await supabase
-              .from('user_profiles')
-              .select('full_name, email')
-              .eq('user_id', user.id)
-              .maybeSingle();
-
-            const { data: onboardingData, error } = await supabase
-              .from('academic_profiles')
-              .select('*')
-              .eq('user_id', user.id)
-              .maybeSingle();
-
-            const { data: researchInterestsData, error: researchError } = await supabase
-              .from('user_research_interests')
-              .select(`research_interests (name)`)
-              .eq('user_id', user.id)
-              .order('priority');
-            
-            if (onboardingData || userProfileData || researchInterestsData) {
-              const researchInterestNames = researchInterestsData?.map((ri: {research_interests?: {name?: string}}) => ri.research_interests?.name).filter(Boolean) || [];
-              
-              setUserProfile({
-                gpa: onboardingData?.current_gpa || onboardingData?.gpa || onboardingData?.currentGpa || 0,
-                testScores: {
-                  gre: onboardingData?.gre_quantitative || 0,
-                  toefl: onboardingData?.toefl_score || 0,
-                  ielts: onboardingData?.ielts_score || 0
-                },
-                researchInterests: researchInterestNames.length > 0 ? researchInterestNames : (onboardingData?.current_field_of_study ? [onboardingData.current_field_of_study] : []),
-                targetDegree: onboardingData?.target_field || onboardingData?.current_field_of_study || '',
-                preferences: {
-                  countries: [],
-                  locations: [],
-                  universityTypes: [],
-                  maxTuition: undefined,
-                  minAdmissionRate: undefined
-                }
-              });
-              
-              setUserProfileData({
-                name: (userProfileData as any)?.full_name || `${onboardingData?.first_name || ''} ${onboardingData?.last_name || ''}`.trim() || '',
-                email: (userProfileData as any)?.email || user?.email || '',
-                onboarding_completed: false
-              });
-              
-              setProfileDataLoaded(true);
-            } else {
-              console.warn('⚠️ No onboarding data found in fallback mode');
-              setUserProfile({
-                gpa: 0,
-                testScores: { gre: 0, toefl: 0, ielts: 0 },
-                researchInterests: [],
-                targetDegree: '',
-                preferences: {
-                  countries: [],
-                  locations: [],
-                  universityTypes: [],
-                  maxTuition: undefined,
-                  minAdmissionRate: undefined
-                }
-              });
-              setProfileDataLoaded(true);
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error loading user profile data:', error);
-        }
-
-        try {
-          // Load universities (always needed)
           const allUniversities = await universityMatchingService.getAllUniversities();
           setUniversities(allUniversities);
-          
-          if (allUniversities.length === 0) {
-            console.warn('⚠️ No universities found in database');
-          }
+          console.log(`📊 Loaded ${allUniversities.length} universities from database`);
         } catch (error) {
           console.error('❌ Error loading universities:', error);
+          setUniversities([]); // Empty array, no mock data
           setDataLoadError('Failed to load universities');
-        }
-        
-        // Load user profile data if available
-        if (academicProfile || researchInterests || sessionCvAnalysis) {
-          
-          setUserProfile({
-            gpa: academicProfile?.current_gpa || academicProfile?.gpa || academicProfile?.currentGpa || 0,
-            testScores: {
-              gre: academicProfile?.gre_quantitative || 0,
-              toefl: academicProfile?.toefl_score || 0,
-              ielts: academicProfile?.ielts_score || 0
-            },
-            researchInterests: researchInterests?.length > 0 ? researchInterests : (academicProfile?.current_field_of_study ? [academicProfile.current_field_of_study] : []),
-            targetDegree: academicProfile?.current_field_of_study || '',
-            preferences: {
-              countries: [],
-              locations: [],
-              universityTypes: [],
-              maxTuition: undefined,
-              minAdmissionRate: undefined
-            }
-          });
-          
-          if (sessionCvAnalysis) {
-            setCvAnalysis(sessionCvAnalysis);
-          }
-          
-          setDataLoadError(null);
-        } else {
-          // No profile data available from session - don't overwrite if we already loaded it directly
-          if (!profileDataLoaded) {
-            setUserProfile(prev => ({
-              ...prev,
-              gpa: 0,
-              targetDegree: 'Not specified',
-              researchInterests: []
-            }));
-          }
         }
 
         // Load saved universities
         await loadSavedUniversitiesData();
 
+        setProfileDataLoaded(true);
+
       } catch (error) {
-        console.error('❌ Error loading data:', error);
+        console.error('❌ Error loading real user data:', error);
         setDataLoadError(error instanceof Error ? error.message : 'Failed to load data');
+        
+        // Set empty states - NO MOCK DATA
+        setUserProfile({
+          gpa: 0,
+          testScores: { gre: 0, toefl: 0, ielts: 0 },
+          researchInterests: [],
+          targetDegree: '',
+          currentInstitution: '',
+          currentDegree: '',
+          preferences: {
+            countries: [],
+            locations: [],
+            universityTypes: [],
+            maxTuition: undefined,
+            minAdmissionRate: undefined
+          }
+        });
+        setUserProfileData({
+          name: '',
+          email: user?.email || '',
+          onboarding_completed: false
+        });
+        setMatches([]);
+        setUniversities([]);
       } finally {
         setLoading(false);
         setIsInitializing(false);
       }
     };
 
-    initializeData();
-  }, [user?.id, initializedForUser, academicProfile, researchInterests, sessionCvAnalysis, profileDataLoaded, isInitializing, loadSavedUniversitiesData, user]); // Only re-run when user changes or initialization status changes
+    loadRealUserData();
+  }, [user?.id, initializedForUser, isInitializing, loadSavedUniversitiesData]);
 
   // Debug session data (limited to prevent console spam)
   if (user?.id) {
@@ -625,114 +542,65 @@ export default function UniversityMatching() {
   };
 
   const generateMatches = async () => {
-    if (!user) {return;}
+    if (!user) {
+      return;
+    }
     
     setGenerating(true);
     
     try {
-      // First try to get any existing matches from the database
-      console.log('🔍 Checking for existing matches...');
-      const existingMatches = await universityMatchingService.getUserMatches(user.id);
+      console.log('🤖 Generating university matches using ChatGPT with real user data...');
       
-      if (existingMatches && existingMatches.length > 0) {
-        console.log(`✅ Found ${existingMatches.length} existing matches`);
-        setMatches(existingMatches);
-        setActiveTab('matches');
-        setGenerating(false);
-        return;
-      }
+      // Use the real university matching storage service that uses ChatGPT
+      const { universityMatchingStorageService } = await import('@/services/universityMatchingStorageService');
       
-      // If no existing matches, create demo matches using available universities
-      console.log('🔍 Creating demo matches with available universities...');
-      const demoMatches = [];
-      
-      if (universities.length > 0) {
-        const categories = ['reach', 'target', 'safety'];
-        const scores = [85, 78, 72];
-        
-        for (let i = 0; i < Math.min(3, universities.length); i++) {
-          const university = universities[i];
-          const demoMatch = {
-            id: `demo-${i}`,
-            match_category: categories[i % categories.length],
-            match_score: scores[i % scores.length] / 100, // Convert to decimal (0-1)
-            universities: {
-              name: university.name,
-              city: university.city,
-              country: university.country,
-              website_url: university.website_url,
-              logo_url: university.logo_url,
-              acceptance_rate: university.acceptance_rate
-            },
-            university_programs: {
-              name: 'Master of Science in Computer Science',
-              duration_months: 24,
-              admission_rate: university.acceptance_rate || 0.3
-            },
-            reasoning: `ChatGPT recommended ${university.name} as a ${categories[i % categories.length]} school based on your academic profile and research interests.`,
-            match_factors: {
-              gpa_match: 0.8,
-              research_alignment: 0.7,
-              location_preference: 0.6,
-              financial_fit: 0.7,
-              ai_score: scores[i % scores.length] / 100
-            }
-          };
-          demoMatches.push(demoMatch);
-        }
-        
-        console.log(`✅ Created ${demoMatches.length} demo matches`);
-        setMatches(demoMatches);
-        setActiveTab('matches');
-        setGenerating(false);
-        return;
-      }
-      
-      // Original matching logic as fallback
-      const matchRequest = {
-        userProfile,
-        cvAnalysis
-      };
-      
-      // Add timeout to prevent hanging
-      const matchPromise = universityMatchingService.generateMatches(user.id, matchRequest);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Match generation timeout - taking too long')), MATCH_TIMEOUT_MS)
+      // Generate comprehensive matches using ONLY real user data and database universities
+      const comprehensiveMatches = await universityMatchingStorageService.generateComprehensiveMatches(
+        'Generate university matches based on my profile', 
+        12 // Minimum 12 matches
       );
       
-      const result = await Promise.race([matchPromise, timeoutPromise]);
+      if (comprehensiveMatches.error) {
+        console.error('❌ Error generating matches:', comprehensiveMatches.error);
+        throw new Error(comprehensiveMatches.error);
+      }
       
-      // Handle both array and object responses
-      const newMatches = Array.isArray(result) ? result : ((result as any)?.matches || []);
-      console.log('🔍 Generated matches data:', newMatches);
-      console.log('🔍 First match structure:', newMatches[0]);
-      setMatches(newMatches);
-      
-      if (newMatches.length > 0) {
+      if (comprehensiveMatches.data && comprehensiveMatches.data.length > 0) {
+        console.log(`✅ Generated ${comprehensiveMatches.data.length} real university matches`);
+        
+        // Transform to the format expected by the UI
+        const transformedMatches = comprehensiveMatches.data.map(match => ({
+          id: match.id,
+          match_category: match.match_category,
+          match_score: match.match_score,
+          universities: {
+            name: match.university_name || 'Unknown University',
+            city: match.location?.split(',')[0]?.trim() || 'Unknown City',
+            country: match.location?.split(',')[1]?.trim() || 'Unknown Country',
+            website_url: match.website_url || '',
+            acceptance_rate: 0.3 // Default, will be updated from database if available
+          },
+          university_programs: {
+            name: match.program_name || 'Graduate Program',
+            duration_months: 24,
+            admission_rate: 0.3
+          },
+          reasoning: Array.isArray(match.why_recommended) ? match.why_recommended.join('. ') : 'Recommended based on your profile',
+          match_factors: match.match_factors || {}
+        }));
+        
+        setMatches(transformedMatches);
         setActiveTab('matches');
       } else {
-        handleNoMatches();
+        console.warn('⚠️ No matches generated from real data');
+        setMatches([]);
+        setDataLoadError('No matching universities found based on your profile. Please ensure your academic profile is complete.');
       }
 
     } catch (error) {
       console.error('❌ Error generating matches:', error);
-      
-      // If timeout, try to load any existing matches from database
-      if (error instanceof Error && error.message.includes('timeout')) {
-        try {
-          const existingMatches = await universityMatchingService.getUserMatches(user.id);
-          if (existingMatches && existingMatches.length > 0) {
-            setMatches(existingMatches);
-            setActiveTab('matches');
-            console.log(`✅ Loaded ${existingMatches.length} existing matches after timeout`);
-            return;
-          }
-        } catch (fallbackError) {
-          console.warn('Could not load existing matches:', fallbackError);
-        }
-      }
-      
-      handleNoMatches();
+      setMatches([]);
+      setDataLoadError(error instanceof Error ? error.message : 'Failed to generate university matches');
     } finally {
       setGenerating(false);
     }
@@ -1415,10 +1283,10 @@ export default function UniversityMatching() {
               <div>
                 <Label className="text-sm font-medium text-gray-600">Current Institution</Label>
                 <div className="text-sm font-medium">
-                  {academicProfile?.current_institution || 'Not specified'}
+                  {userProfile.currentInstitution || 'Not specified'}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {academicProfile?.current_degree || 'Degree not specified'}
+                  {userProfile.currentDegree || 'Degree not specified'}
                 </div>
               </div>
               <div className="space-y-2">
@@ -1435,12 +1303,12 @@ export default function UniversityMatching() {
                   ) : (
                     <>
                       <RefreshCw className="h-4 w-4 mr-2" />
-                      Generate ChatGPT Matches
+                      Generate AI Matches
                     </>
                   )}
                 </Button>
                 <div className="text-xs text-center text-muted-foreground">
-                  Fast ChatGPT analysis: CV, grades, research, goals
+                  Fast AI analysis: CV, grades, research, goals
                 </div>
               </div>
             </div>
@@ -1492,12 +1360,15 @@ export default function UniversityMatching() {
                   {userProfileData.onboarding_completed ? (
                     <div className="flex items-center gap-2 text-sm text-green-600">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      Onboarding completed - Profile active
+                      Profile loaded from database - Ready for matching
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-sm text-blue-600">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      Using sample data for demonstration - Complete your academic profile for personalized matching
+                    <div className="flex items-center gap-2 text-sm text-orange-600">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      {userProfile.gpa > 0 || userProfile.researchInterests.length > 0 || userProfileData.name ? 
+                        'Profile partially complete - Add more data for better matches' : 
+                        'No profile data found - Complete onboarding for personalized matching'
+                      }
                     </div>
                   )}
                 </div>

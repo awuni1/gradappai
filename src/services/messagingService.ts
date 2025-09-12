@@ -92,7 +92,7 @@ class MessagingService {
       
       // First, get the messages without complex joins
       const { data: messages, error: messagesError } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
@@ -191,7 +191,7 @@ class MessagingService {
 
       // Create the message without complex joins
       const { data: messageResult, error: messageError } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .insert({
           ...messageData,
           sender_id: senderId,
@@ -313,7 +313,7 @@ class MessagingService {
     try {
       // Get unread messages in the conversation
       const { data: unreadMessages, error: fetchError } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .select('id, read_by')
         .eq('conversation_id', conversationId)
         .not('read_by', 'cs', `{${userId}}`);
@@ -325,7 +325,7 @@ class MessagingService {
         const updates = unreadMessages.map(message => {
           const updatedReadBy = [...(message.read_by || []), userId];
           return supabase
-            .from('gradnet_messages')
+            .from('messages')
             .update({ read_by: updatedReadBy })
             .eq('id', message.id);
         });
@@ -346,13 +346,13 @@ class MessagingService {
       const fileName = `${userId}/${conversationId}/${Date.now()}.${fileExt}`;
 
       const { data, error } = await supabase.storage
-        .from('gradnet_messages')
+        .from('messages')
         .upload(fileName, file);
 
       if (error) {throw error;}
 
       const { data: { publicUrl } } = supabase.storage
-        .from('gradnet_messages')
+        .from('messages')
         .getPublicUrl(data.path);
 
       return publicUrl;
@@ -387,7 +387,7 @@ class MessagingService {
         async (payload) => {
           // Fetch the complete message with sender info
           const { data } = await supabase
-            .from('gradnet_messages')
+            .from('messages')
             .select(`
               *,
               sender:sender_id (
@@ -423,7 +423,7 @@ class MessagingService {
         async (payload) => {
           // Fetch the complete updated message
           const { data } = await supabase
-            .from('gradnet_messages')
+            .from('messages')
             .select(`
               *,
               sender:sender_id (
@@ -510,7 +510,7 @@ class MessagingService {
       if (conversationIds.length === 0) {return [];}
 
       const { data, error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .select(`
           *,
           sender:sender_id (
@@ -548,7 +548,7 @@ class MessagingService {
   async deleteMessage(messageId: string, userId: string): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .update({ 
           content: '[Message deleted]',
           edited_at: new Date().toISOString()
@@ -573,7 +573,7 @@ class MessagingService {
   async editMessage(messageId: string, newContent: string, userId: string): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .update({ 
           content: newContent,
           edited_at: new Date().toISOString()

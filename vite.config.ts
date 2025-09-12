@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => ({
     global: 'globalThis',
   },
   optimizeDeps: {
-    include: ['mammoth']
+    include: ['mammoth', 'pdfjs-dist']
   },
   build: {
     rollupOptions: {
@@ -63,7 +63,7 @@ export default defineConfig(({ mode }) => ({
           ],
           supabase: ['@supabase/supabase-js', '@supabase/auth-ui-react', '@supabase/auth-ui-shared'],
           utils: ['clsx', 'tailwind-merge', 'framer-motion', 'class-variance-authority'],
-          pdf: ['mammoth'],
+          pdf: ['mammoth', 'pdfjs-dist'],
           charts: ['recharts'],
           forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
           video: ['@zoom/videosdk'],

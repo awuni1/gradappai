@@ -23,6 +23,8 @@ import { CVUploadMessage } from './CVUploadMessage';
 import { UniversityCardMessage } from './UniversityCardMessage';
 import { UniversityResponseParser, universityResponseUtils } from '@/services/universityResponseParser';
 import { GeminiService } from '@/services/geminiService';
+import { documentParserService } from '@/services/documentParserService';
+import { cvAnalysisService } from '@/services/cvAnalysisService';
 import { ChatMessage, ConversationDetails, MatchedUniversity, CVAnalysisResult } from '@/types/global';
 
 interface MessageMetadata {
@@ -177,25 +179,43 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
       // Refresh messages to show analyzing indicator
       onMessageSent();
 
-      // Convert file to text for analysis
-      const fileText = await extractTextFromFile(file);
+      // Parse document using the proper document parser service
+      console.log('📄 Parsing document with documentParserService...');
+      const parseResult = await documentParserService.parseDocument(file);
       
-      if (!fileText) {
-        throw new Error('Could not extract text from file');
+      if (parseResult.error) {
+        console.error('❌ Document parsing failed:', parseResult.error);
+        throw new Error(`Document parsing failed: ${parseResult.error.message}. Tip: For best results, try uploading a Word document (.docx) or text file (.txt) instead.`);
       }
+      
+      if (!parseResult.data?.text) {
+        throw new Error('No text content could be extracted from the document');
+      }
+      
+      const fileText = parseResult.data.text;
+      const documentMetadata = parseResult.data.metadata;
+      
+      console.log(`✅ Successfully extracted ${fileText.length} characters from ${documentMetadata.fileName}`);
 
-      // Insert user file upload message
+      // Insert user file upload message with enhanced metadata
       const { error: uploadMessageError } = await supabase
         .from('messages')
         .insert({
           conversation_id: selectedConversationId,
           role: 'user',
-          content: `Attached file: ${file.name}`,
+          content: `Uploaded ${documentMetadata.parseMethod.toUpperCase()} file: ${file.name}`,
           message_type: 'file',
           metadata: { 
             filename: file.name,
             filesize: file.size,
-            filetype: file.type
+            filetype: file.type,
+            document_metadata: {
+              wordCount: documentMetadata.wordCount,
+              characterCount: documentMetadata.characterCount,
+              pageCount: documentMetadata.pageCount,
+              parseMethod: documentMetadata.parseMethod
+            },
+            extraction_success: true
           }
         });
 
@@ -210,9 +230,33 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
     } catch (error) {
       console.error('❌ Error processing file upload:', error);
+      
+      // Provide specific error messages based on document parser errors
+      let errorTitle = 'Upload Failed';
+      let errorDescription = 'Failed to process your document. Please try again.';
+      
+      if (error.message.includes('PDF_NO_TEXT_CONTENT')) {
+        errorTitle = 'PDF Text Extraction Failed';
+        errorDescription = 'This PDF appears to be image-based. Please use a PDF with selectable text, convert to Word (.docx), or save as text file (.txt).';
+      } else if (error.message.includes('PDF_PARSE_FAILED')) {
+        errorTitle = 'PDF Processing Failed';
+        errorDescription = 'Unable to read this PDF file. This could be due to:\n• The PDF may be password-protected\n• The PDF may be corrupted\n• The PDF may be image-based (scanned document)\n\nPlease try:\n• Converting to Word document (.docx)\n• Saving as text file (.txt)\n• Ensuring the PDF has selectable text';
+      } else if (error.message.includes('FILE_TOO_LARGE')) {
+        errorTitle = 'File Too Large';
+        errorDescription = 'File size exceeds 10MB limit. Please upload a smaller file.';
+      } else if (error.message.includes('INSUFFICIENT_CONTENT')) {
+        errorTitle = 'Insufficient Content';
+        errorDescription = 'Document appears to be empty or contains too little text content for analysis.';
+      } else if (error.message.includes('UNSUPPORTED_FORMAT')) {
+        errorTitle = 'Unsupported File Format';
+        errorDescription = 'Please upload PDF, DOCX, DOC, or TXT files only.';
+      } else if (error.message.includes('Document parsing failed')) {
+        errorDescription = error.message;
+      }
+      
       toast({
-        title: 'Upload Failed',
-        description: 'Failed to process your CV. Please try again.',
+        title: errorTitle,
+        description: errorDescription,
         variant: 'destructive',
       });
     } finally {
@@ -224,52 +268,6 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
     }
   };
 
-  const extractTextFromFile = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      if (!file) {
-        reject(new Error('No file provided'));
-        return;
-      }
-
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        try {
-          const text = e.target?.result as string;
-          if (text && text.trim()) {
-            resolve(text);
-          } else {
-            reject(new Error('File appears to be empty or unreadable'));
-          }
-        } catch (error) {
-          reject(new Error('Error processing file content'));
-        }
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Failed to read file. The file may be corrupted.'));
-      };
-
-      reader.onabort = () => {
-        reject(new Error('File reading was aborted'));
-      };
-      
-      try {
-        // For now, handle text files. In production, you'd use PDF parsers for PDF files
-        if (file.type.includes('text') || file.type.includes('plain')) {
-          reader.readAsText(file);
-        } else {
-          // For PDF/DOC files, we'll simulate extraction for now
-          // In production, you'd use libraries like pdf2pic, mammoth, etc.
-          setTimeout(() => {
-            resolve(`[Document Content from ${file.name}]\n\nThis is a simulated document extraction. In production, this would contain the actual text extracted from your uploaded PDF or DOC file.\n\nEducation:\n- Bachelor's in Computer Science\n- GPA: 3.7/4.0\n\nExperience:\n- Software Engineer at Tech Company (2 years)\n- Research Assistant in AI Lab\n\nSkills:\n- Python, Java, Machine Learning\n- Research, Data Analysis\n\nResearch Interests:\n- Artificial Intelligence\n- Machine Learning`);
-          }, 1000);
-        }
-      } catch (error) {
-        reject(new Error('Error initiating file read'));
-      }
-    });
-  };
 
   const generateDemoResponse = async (userMessage: string) => {
     try {
@@ -731,9 +729,37 @@ What specific aspect of graduate school would you like to discuss?
     try {
       if (response.parsed_data?.universities) {
         await insertUniversityRecommendations(conversationId, response.content, response.parsed_data);
+        
+        // Also store the matches using our new storage service
+        const { universityMatchingStorageService } = await import('@/services/universityMatchingStorageService');
+        await universityMatchingStorageService.storeUniversityMatches(conversationId, response.parsed_data.universities);
       } else {
-        // Fallback to text response if parsing failed
-        await handleTextResponse(conversationId, response);
+        // Try generating comprehensive matches using real user data
+        const { universityMatchingStorageService } = await import('@/services/universityMatchingStorageService');
+        const comprehensiveMatches = await universityMatchingStorageService.generateComprehensiveMatches(response.content, 15); // Request 15 to ensure we get at least 10
+        
+        if (comprehensiveMatches.data && comprehensiveMatches.data.length > 0) {
+          await universityMatchingStorageService.storeUniversityMatches(conversationId, comprehensiveMatches.data);
+          
+          // Convert to expected format and store as recommendations
+          const formattedData = {
+            universities: comprehensiveMatches.data,
+            analysis: {
+              reach_schools: comprehensiveMatches.data.filter(u => u.match_category === 'reach').length,
+              target_schools: comprehensiveMatches.data.filter(u => u.match_category === 'target').length,
+              safety_schools: comprehensiveMatches.data.filter(u => u.match_category === 'safety').length,
+              confidence_score: Math.round(comprehensiveMatches.data.reduce((acc, u) => acc + u.match_score, 0) / comprehensiveMatches.data.length * 100),
+              primary_field: 'Graduate Studies'
+            }
+          };
+          
+          await insertUniversityRecommendations(conversationId, response.content, formattedData);
+        } else {
+          // If no comprehensive matches could be generated, show error
+          await insertErrorResponse(conversationId, 
+            "I couldn't find any universities in the database that match your profile. Please ensure the university database is properly populated with universities and programs."
+          );
+        }
       }
     } catch (error) {
       console.error('❌ Error handling university list response:', error);

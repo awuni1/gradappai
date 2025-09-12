@@ -158,7 +158,8 @@ class UniversityMatchingService {
    * Seed comprehensive university and program data with real institutions
    */
   async seedUniversityData(): Promise<void> {
-    console.log('🌱 Seeding comprehensive university data with real institutions...');
+    console.log('🔍 Skipping university data seeding - using existing data in database...');
+    return; // Skip seeding since data already exists
 
     const universities = [
       {

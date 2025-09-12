@@ -255,11 +255,11 @@ export default function DocumentGenerator() {
       const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
 
       if (!apiKey || !endpoint) {
-        throw new Error('Azure OpenAI configuration missing. Please check your environment variables.');
+        throw new Error('AI configuration missing. Please check your environment variables.');
       }
 
       const prompt = createAIPrompt(type, context);
-      console.log('🤖 Generating document with Azure OpenAI...');
+      console.log('🤖 Generating document with AI...');
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -883,7 +883,7 @@ Demonstrate deep understanding of the field, methodological rigor, and feasibili
                       <h3 className="text-lg font-medium mb-2">No Document Generated Yet</h3>
                       <p className="text-sm mb-4">Fill out the form above and click "Generate Document" to create your personalized academic document using AI.</p>
                       <div className="text-xs text-gray-400">
-                        🤖 Powered by Azure OpenAI GPT-4
+                        🤖 Powered by AI
                       </div>
                     </div>
                   )}

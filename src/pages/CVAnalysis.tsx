@@ -1357,7 +1357,7 @@ export default function CVAnalysis() {
 
     // Add timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      setError('ChatGPT analysis timed out after 30 seconds. Please try again.');
+      setError('AI analysis timed out after 30 seconds. Please try again.');
       setIsAnalyzing(false);
       setIsUploading(false);
       setUploadProgress(0);
@@ -1366,7 +1366,7 @@ export default function CVAnalysis() {
 
     try {
       // Check if ChatGPT service is configured
-      console.log('🔍 Checking ChatGPT configuration...');
+      console.log('🔍 Checking AI configuration...');
       const hasApiKey = Boolean(import.meta.env.VITE_AZURE_OPENAI_API_KEY);
       const hasEndpoint = Boolean(import.meta.env.VITE_AZURE_OPENAI_ENDPOINT);
       
@@ -1428,7 +1428,7 @@ export default function CVAnalysis() {
       }
       
       setUploadProgress(50);
-      setProcessingStage('ChatGPT analyzing your CV...');
+      setProcessingStage(' analyzing your CV...');
       
       // Analyze with ChatGPT directly
       const { ChatGPTService } = await import('@/services/chatGptService');

@@ -143,44 +143,106 @@ class DocumentParserService {
     console.log('📄 Processing PDF file with PDF.js:', file.name);
     
     try {
-      // Set up PDF.js worker
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      // Try different approaches to set up PDF.js worker
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        try {
+          // Try the exact version we have installed (5.4.149)
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.js';
+          console.log('📄 Using PDF.js worker from unpkg CDN');
+        } catch (workerError) {
+          console.warn('⚠️ Could not set PDF.js worker from unpkg, trying cdnjs...');
+          try {
+            // Try cdnjs with different versions
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.269/pdf.worker.min.js';
+            console.log('📄 Using PDF.js worker from cdnjs');
+          } catch (cdnError) {
+            console.warn('⚠️ Could not set PDF.js worker from CDN, disabling worker...');
+            // Disable worker - less efficient but should work in all browsers
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+          }
+        }
+      }
       
+      console.log('📄 Reading file as array buffer...');
       const arrayBuffer = await file.arrayBuffer();
+      
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        throw new Error('File appears to be empty or corrupted');
+      }
+      
+      console.log(`📄 File size: ${arrayBuffer.byteLength} bytes`);
       const uint8Array = new Uint8Array(arrayBuffer);
       
-      // Load PDF document
-      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-      const numPages = pdf.numPages;
+      // Load PDF document with timeout
+      console.log('📄 Loading PDF document...');
+      const loadingTask = pdfjsLib.getDocument({ 
+        data: uint8Array,
+        verbosity: 0, // Reduce console output
+        disableAutoFetch: true, // Improve performance
+        disableStream: true, // Improve compatibility
+        disableRange: true // Improve compatibility
+      });
       
+      const pdf = await Promise.race([
+        loadingTask.promise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('PDF loading timeout')), 30000)
+        )
+      ]) as any;
+      
+      const numPages = pdf.numPages;
       console.log(`📄 PDF loaded successfully: ${numPages} pages`);
       
-      let fullText = '';
+      if (numPages === 0) {
+        throw new Error('PDF contains no pages');
+      }
       
-      // Extract text from each page
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      let fullText = '';
+      let pagesProcessed = 0;
+      
+      // Extract text from each page (with limits to prevent hanging)
+      const maxPages = Math.min(numPages, 20); // Limit to first 20 pages for safety
+      
+      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
         try {
-          const page = await pdf.getPage(pageNum);
-          const textContent = await page.getTextContent();
+          console.log(`📄 Processing page ${pageNum}/${maxPages}...`);
+          
+          const page = await Promise.race([
+            pdf.getPage(pageNum),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`Page ${pageNum} load timeout`)), 10000)
+            )
+          ]) as any;
+          
+          const textContent = await Promise.race([
+            page.getTextContent(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`Page ${pageNum} text extraction timeout`)), 10000)
+            )
+          ]) as any;
           
           // Combine text items from this page
           const pageText = textContent.items
-            .map((item: any) => {
-              if ('str' in item) {
-                return item.str;
-              }
-              return '';
-            })
-            .join(' ');
+            .filter((item: any) => item && typeof item.str === 'string')
+            .map((item: any) => item.str)
+            .join(' ')
+            .trim();
           
-          if (pageText.trim()) {
+          if (pageText) {
             fullText += pageText + '\n\n';
+            pagesProcessed++;
           }
           
           console.log(`📄 Extracted ${pageText.length} characters from page ${pageNum}`);
+          
+          // Clean up page object
+          if (page.cleanup) {
+            page.cleanup();
+          }
+          
         } catch (pageError) {
-          console.warn(`⚠️ Error extracting text from page ${pageNum}:`, pageError);
-          // Continue with other pages
+          console.warn(`⚠️ Error extracting text from page ${pageNum}:`, pageError.message);
+          // Continue with other pages - don't fail the entire process
         }
       }
       
@@ -190,13 +252,18 @@ class DocumentParserService {
         .replace(/[\r\n]+/g, '\n')
         .trim();
       
-      console.log(`✅ Successfully extracted ${fullText.length} characters from ${numPages} pages`);
+      console.log(`✅ Successfully extracted ${fullText.length} characters from ${pagesProcessed}/${numPages} pages`);
+      
+      // Clean up PDF object
+      if (pdf.cleanup) {
+        pdf.cleanup();
+      }
       
       if (fullText.length < 50) {
         return {
           error: {
             code: 'PDF_NO_TEXT_CONTENT',
-            message: 'This PDF appears to be image-based or contains no extractable text. Please:\n\n• Use a PDF with selectable text\n• Convert to Word document (.docx)\n• Save as text file (.txt) with copy-paste'
+            message: 'This PDF appears to be image-based or contains no extractable text. Please:\n\n• Use a PDF with selectable text\n• Convert to Word document (.docx)\n• Save as text file (.txt) with copy-paste\n\nAlternatively, your PDF may be a scanned document that requires OCR processing.'
           }
         };
       }
@@ -208,15 +275,32 @@ class DocumentParserService {
       
     } catch (error) {
       console.error('PDF.js parsing error:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to parse PDF file. The file may be corrupted or password-protected.';
+      
+      if (error.message?.includes('Invalid PDF')) {
+        errorMessage = 'The uploaded file does not appear to be a valid PDF document.';
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = 'PDF processing timed out. The file may be too large or complex. Try uploading a smaller PDF or convert to Word format.';
+      } else if (error.message?.includes('password')) {
+        errorMessage = 'This PDF is password-protected. Please remove the password protection and try again.';
+      } else if (error.message?.includes('empty')) {
+        errorMessage = 'The PDF file appears to be empty or corrupted.';
+      }
+      
+      // No fallback needed - provide clear error message
+      
       return {
         error: {
           code: 'PDF_PARSE_FAILED',
-          message: 'Failed to parse PDF file. The file may be corrupted or password-protected.',
-          details: error
+          message: errorMessage,
+          details: error.message || error
         }
       };
     }
   }
+
 
   /**
    * Parse DOCX files using mammoth

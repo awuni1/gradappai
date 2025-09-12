@@ -73,75 +73,84 @@ export const UniversitySearchResults: React.FC<UniversitySearchResultsProps> = (
       setLoading(true);
       console.log('🔍 Loading university search results for conversation:', selectedConversationId);
       
-      // First get the user ID from the conversation
-      const { data: conversationData } = await supabase
-        .from('conversations')
-        .select('user_id')
-        .eq('id', selectedConversationId)
-        .single();
+      // First try to get stored matches using the new storage service
+      const { universityMatchingStorageService } = await import('@/services/universityMatchingStorageService');
+      const storedMatches = await universityMatchingStorageService.getStoredMatches(selectedConversationId);
       
-      if (!conversationData) {
-        console.log('No conversation found');
-        setUniversities([]);
-        return;
-      }
-      
-      // Get AI university matches for this user (using fixed schema)
-      const { data, error } = await supabase
-        .from('ai_university_matches')
-        .select(`
-          *,
-          universities!inner(name, city, country, website_url),
-          university_programs!inner(name)
-        `)
-        .eq('user_id', conversationData.user_id)
-        .order('overall_match_score', { ascending: false })
-        .limit(20);
-
-      if (error) {
-        console.error('❌ Error loading AI university matches:', error);
-        
-        // Fallback: Try legacy university_recommendations table
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('university_recommendations')
-          .select('*')
-          .eq('conversation_id', selectedConversationId)
-          .order('created_at', { ascending: false });
-          
-        if (!fallbackError && fallbackData && fallbackData.length > 0) {
-          const allUniversities = fallbackData.flatMap(rec => rec.universities || []);
-          setUniversities(allUniversities);
-          if (fallbackData[0].filters_applied) {
-            setSearchMetadata(fallbackData[0].filters_applied);
-          }
-        } else {
-          setUniversities([]);
-          setSearchMetadata(null);
-        }
-        return;
-      }
-
-      if (data && data.length > 0) {
-        // Transform AI matches to display format
-        const transformedUniversities = data.map(match => ({
-          name: match.universities?.name || 'Unknown University',
-          program: match.university_programs?.name || 'Unknown Program',
-          location: `${match.universities?.city || ''}, ${match.universities?.country || ''}`.replace(/^, |, $/, ''),
-          match_score: match.overall_match_score || 0,
-          category: match.match_category || 'target',
-          ranking: `Match Score: ${Math.round(match.overall_match_score || 0)}%`,
-          why_recommended: match.advantage_factors || [],
-          concerns: match.competitive_factors || [],
-          website_url: match.universities?.website_url,
-          admission_requirements: match.admission_requirements || {},
-          research_areas: match.research_areas || []
+      if (storedMatches.data && storedMatches.data.length > 0) {
+        // Transform stored matches to display format
+        const transformedUniversities = storedMatches.data.map(match => ({
+          name: match.university_name,
+          program: match.program_name,
+          location: match.location,
+          match_score: match.match_score * 100, // Convert to percentage
+          category: match.match_category,
+          ranking: match.ranking ? `#${match.ranking} globally` : undefined,
+          why_recommended: match.why_recommended,
+          concerns: match.concerns || [],
+          website_url: match.website_url,
+          application_deadline: match.application_deadline,
+          tuition_fee: match.tuition_cost ? `$${Math.round(match.tuition_cost).toLocaleString()}/year` : undefined,
+          admission_requirements: match.match_factors || {},
+          research_areas: []
         })) as University[];
         
         setUniversities(transformedUniversities);
-        setSearchMetadata({ match_type: 'ai_powered', total_matches: data.length });
+        setSearchMetadata({ match_type: 'stored_matches', total_matches: transformedUniversities.length });
         
-        console.log('✅ Loaded AI university matches:', transformedUniversities.length, 'universities');
+        console.log(`✅ Loaded ${transformedUniversities.length} stored university matches - displaying in UI`);
+        return;
+      }
+
+      // If no stored matches, try to generate new comprehensive matches
+      console.log('No stored matches found, generating new ones...');
+      const comprehensiveMatches = await universityMatchingStorageService.generateComprehensiveMatches(searchQuery || 'university search', 15); // Request 15 to ensure we get at least 10
+      
+      if (comprehensiveMatches.data && comprehensiveMatches.data.length > 0) {
+        // Store the generated matches for future use
+        await universityMatchingStorageService.storeUniversityMatches(selectedConversationId, comprehensiveMatches.data);
+        
+        // Transform generated matches to display format
+        const transformedUniversities = comprehensiveMatches.data.map(match => ({
+          name: match.university_name,
+          program: match.program_name,
+          location: match.location,
+          match_score: match.match_score * 100, // Convert to percentage
+          category: match.match_category,
+          ranking: match.ranking ? `#${match.ranking} globally` : undefined,
+          why_recommended: match.why_recommended,
+          concerns: match.concerns || [],
+          website_url: match.website_url,
+          application_deadline: match.application_deadline,
+          tuition_fee: match.tuition_cost ? `$${Math.round(match.tuition_cost).toLocaleString()}/year` : undefined,
+          admission_requirements: match.match_factors || {},
+          research_areas: []
+        })) as University[];
+        
+        setUniversities(transformedUniversities);
+        setSearchMetadata({ match_type: 'generated_matches', total_matches: transformedUniversities.length });
+        
+        console.log(`✅ Generated and displaying ${transformedUniversities.length} university matches in UI`);
+        return;
+      }
+      
+      // Fallback: Try legacy university_recommendations table
+      console.log('Trying legacy university_recommendations table...');
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('university_recommendations')
+        .select('*')
+        .eq('conversation_id', selectedConversationId)
+        .order('created_at', { ascending: false });
+        
+      if (!fallbackError && fallbackData && fallbackData.length > 0) {
+        const allUniversities = fallbackData.flatMap(rec => rec.universities || []);
+        setUniversities(allUniversities);
+        if (fallbackData[0].filters_applied) {
+          setSearchMetadata(fallbackData[0].filters_applied);
+        }
+        console.log('✅ Loaded legacy university matches:', allUniversities.length, 'universities');
       } else {
+        console.log('No matches found anywhere, showing empty state');
         setUniversities([]);
         setSearchMetadata(null);
       }
@@ -247,7 +256,7 @@ export const UniversitySearchResults: React.FC<UniversitySearchResultsProps> = (
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-600 font-medium">Finding your perfect university matches...</p>
-          <p className="text-sm text-slate-500 mt-1">Analyzing your profile and preferences</p>
+          <p className="text-sm text-slate-500 mt-1">This may take up to 15 seconds</p>
         </div>
       </div>
     );

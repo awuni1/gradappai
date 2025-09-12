@@ -153,7 +153,7 @@ class CommunicationService {
   ) {
     try {
       let query = supabase
-        .from('gradnet_messages')
+        .from('messages')
         .select(`
           *,
           sender:user_profiles!sender_id (
@@ -169,7 +169,7 @@ class CommunicationService {
       if (options.before_message_id) {
         // Get messages before a specific message (for loading older messages)
         const { data: beforeMessage } = await supabase
-          .from('gradnet_messages')
+          .from('messages')
           .select('created_at')
           .eq('id', options.before_message_id)
           .single();
@@ -182,7 +182,7 @@ class CommunicationService {
       if (options.after_message_id) {
         // Get messages after a specific message (for loading newer messages)
         const { data: afterMessage } = await supabase
-          .from('gradnet_messages')
+          .from('messages')
           .select('created_at')
           .eq('id', options.after_message_id)
           .single();
@@ -233,7 +233,7 @@ class CommunicationService {
   ) {
     try {
       const { data: message, error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .insert({
           conversation_id: conversationId,
           sender_id: senderId,
@@ -338,7 +338,7 @@ class CommunicationService {
   async editMessage(messageId: string, senderId: string, newContent: string) {
     try {
       const { data: message, error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .update({
           content: newContent,
           is_edited: true,
@@ -367,7 +367,7 @@ class CommunicationService {
   async deleteMessage(messageId: string, senderId: string) {
     try {
       const { error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .delete()
         .eq('id', messageId)
         .eq('sender_id', senderId);
@@ -387,7 +387,7 @@ class CommunicationService {
   async markMessagesAsRead(conversationId: string, userId: string) {
     try {
       const { error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .update({
           is_read: true,
           read_by: supabase.raw(`array_append(read_by, '${userId}')`)
@@ -520,7 +520,7 @@ class CommunicationService {
         async (payload) => {
           // Fetch complete message with sender info
           const { data: message } = await supabase
-            .from('gradnet_messages')
+            .from('messages')
             .select(`
               *,
               sender:user_profiles!sender_id (
@@ -545,7 +545,7 @@ class CommunicationService {
         },
         async (payload) => {
           const { data: message } = await supabase
-            .from('gradnet_messages')
+            .from('messages')
             .select(`
               *,
               sender:user_profiles!sender_id (
@@ -656,7 +656,7 @@ class CommunicationService {
   private async getUnreadMessageCount(conversationId: string, userId: string): Promise<number> {
     try {
       const { data, error } = await supabase
-        .from('gradnet_messages')
+        .from('messages')
         .select('id', { count: 'exact' })
         .eq('conversation_id', conversationId)
         .neq('sender_id', userId)
