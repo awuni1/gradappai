@@ -2,6 +2,7 @@ import React from 'react';
 import AuthenticatedHeader from '@/components/AuthenticatedHeader';
 import Footer from '@/components/Footer';
 import SplitScreenHero from '@/components/ui/SplitScreenHero';
+import HomeIntro from '@/components/ui/HomeIntro';
 import SEOHead from '@/components/SEOHead';
 
 const Index = () => {
@@ -15,7 +16,10 @@ const Index = () => {
       <AuthenticatedHeader />
       
       <main className="flex-grow">
-        {/* New Split Screen Hero */}
+        {/* Intro section with concise value prop */}
+        <HomeIntro />
+
+        {/* Split Screen Hero */}
         <SplitScreenHero />
         
         {/* Additional sections can be added here */}

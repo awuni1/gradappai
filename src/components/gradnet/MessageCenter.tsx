@@ -1,44 +1,44 @@
-// import React, { useState, useEffect } from 'react';
-// import { User } from '@supabase/supabase-js';
-// import { supabase } from '@/integrations/supabase/client';
-// import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// import { Button } from '@/components/ui/button';
-// import { Input } from '@/components/ui/input';
-// import { Textarea } from '@/components/ui/textarea';
-// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-// import { Badge } from '@/components/ui/badge';
-// import { ScrollArea } from '@/components/ui/scroll-area';
-// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-// import { 
-//   Search, 
-//   MessageCircle, 
-//   Send, 
-//   Paperclip, 
-//   Smile, 
-//   MoreVertical,
-//   Phone,
-//   Video,
-//   Star,
-//   Archive,
-//   Trash2,
-//   Pin,
-//   CheckCheck,
-//   Clock,
-//   Circle,
-//   Plus,
-//   Filter,
-//   Download,
-//   Eye,
-//   UserPlus
-// } from 'lucide-react';
-// import LoadingSpinner from '@/components/ui/LoadingSpinner';
-// import { toast } from 'sonner';
-// import { messagingService, Conversation, Message, MessageInput } from '@/services/messagingService';
-// import { videoCallService } from '@/services/videoCallService';
+import React, { useState, useEffect } from 'react';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { 
+  Search, 
+  MessageCircle, 
+  Send, 
+  Paperclip, 
+  Smile, 
+  MoreVertical,
+  Phone,
+  Video,
+  Star,
+  Archive,
+  Trash2,
+  Pin,
+  CheckCheck,
+  Clock,
+  Circle,
+  Plus,
+  Filter,
+  Download,
+  Eye,
+  UserPlus
+} from 'lucide-react';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { toast } from 'sonner';
+import { messagingService, Conversation, Message, MessageInput } from '@/services/messagingService';
+import { videoCallService } from '@/services/videoCallService';
 
-// interface MessageCenterProps {
-//   user: User;
-// }
+// Message center component showing real-time chat
 
 // const MessageCenter: React.FC<MessageCenterProps> = ({ user }) => {
 //   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -195,7 +195,7 @@
 //         const callMessage: MessageInput = {
 //           conversation_id: selectedConversation,
 //           content: `${callType === 'video' ? 'Video' : 'Audio'} call started`,
-//           message_type: 'meeting_link'
+//           message_type: 'system'
 //         };
 
 //         await messagingService.sendMessage(callMessage, user.id);
@@ -783,45 +783,7 @@
 
 
 
-import React, { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { 
-  Search, 
-  MessageCircle, 
-  Send, 
-  Paperclip, 
-  Smile, 
-  MoreVertical,
-  Phone,
-  Video,
-  Star,
-  Archive,
-  Trash2,
-  Pin,
-  CheckCheck,
-  Clock,
-  Circle,
-  Plus,
-  Filter,
-  Download,
-  Eye,
-  UserPlus
-} from 'lucide-react';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { toast } from 'sonner';
-import { messagingService, Conversation, Message, MessageInput } from '@/services/messagingService';
-import { videoCallService } from '@/services/videoCallService';
+//
 
 interface MessageCenterProps {
   user: User;
@@ -906,7 +868,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ user }) => {
   const loadConversations = async () => {
     setLoading(true);
     try {
-      const convs = await messagingService.getConversations(user.id);
+      const convs = await messagingService.getConversations();
       
       // Enhance conversations with participant details
       const enhancedConvs = await Promise.all(
@@ -1286,18 +1248,11 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ user }) => {
 
     setSearchingUsers(true);
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_image_url, field_of_study, academic_level')
-        .or(`display_name.ilike.%${query}%,field_of_study.ilike.%${query}%`)
-        .neq('user_id', user.id) // Don't include current user
-        .limit(10);
-
-      if (error) {throw error;}
-      setFoundUsers(data || []);
+      const users = await messagingService.searchUsers(query, user.id);
+      setFoundUsers(users);
     } catch (error) {
       console.error('Error searching users:', error);
-      toast.error('Failed to search users');
+      setFoundUsers([]);
     } finally {
       setSearchingUsers(false);
     }

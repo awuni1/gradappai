@@ -6,18 +6,17 @@ import AuthenticatedHeader from '@/components/AuthenticatedHeader';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { 
   Users, 
-  MessageCircle, 
+  // MessageCircle, // Messaging temporarily disabled
   FileText, 
   Network,
   Globe
 } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
-import gradnetService from '@/services/gradnetService';
 
 // Import the enhanced components
 import SocialFeed from '@/components/gradnet/SocialFeed';
 import MentorDiscovery from '@/components/gradnet/MentorDiscovery';
-import MessageCenter from '@/components/gradnet/MessageCenter';
+// import WhatsAppStyleMessageCenter from '@/components/gradnet/WhatsAppStyleMessageCenter'; // Messaging temporarily disabled
 import DocumentLibrary from '@/components/gradnet/DocumentLibrary';
 import NetworkingHub from '@/components/gradnet/NetworkingHub';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,8 @@ const GradNet: React.FC = () => {
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) {
-      setActiveTab(tab);
+  // Redirect deprecated/disabled tab to feed
+  setActiveTab(tab === 'messages' ? 'feed' : tab);
     }
   }, [searchParams]);
 
@@ -44,18 +44,25 @@ const GradNet: React.FC = () => {
     setActiveTab(newTab);
     setSearchParams({ tab: newTab });
     
-    if (newTab === 'messages') {
-      setTimeout(() => {
-        updateUnreadCount();
-      }, 1000);
-    }
+  // Messaging tab is disabled
   };
 
   // Function to get unread message count using gradnetService
   const getUnreadMessageCount = async (userId: string) => {
     try {
-      const count = await gradnetService.getUnreadMessageCount(userId);
-      return count;
+      // Simple fallback count - can be enhanced later
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id')
+        .limit(1);
+      
+      if (error) {
+        console.warn('Database not ready for message counts:', error);
+        return 0;
+      }
+      
+      // For now, return 0 - this can be enhanced when messaging is fully functional
+      return 0;
     } catch (error) {
       console.warn('Error fetching unread message count:', error);
       return 0;
@@ -73,23 +80,42 @@ const GradNet: React.FC = () => {
   useEffect(() => {
     // Get initial user
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (error) {
+          console.error('Authentication error:', error);
+          navigate('/auth');
+          return;
+        }
+        
+        if (!user) {
+          console.log('No user found, redirecting to auth');
+          navigate('/auth');
+          return;
+        }
+        
+        console.log('User authenticated:', user.id);
+        setUser(user);
+        setLoading(false);
+        
+        // Load initial unread count in background (don't block UI)
+        getUnreadMessageCount(user.id).then(count => {
+          setUnreadMessageCount(count);
+        }).catch(error => {
+          console.warn('Failed to load unread message count:', error);
+          setUnreadMessageCount(0);
+        });
+        
+      } catch (error) {
+        console.error('Error in getUser:', error);
+        setUser(null);
+        setLoading(false);
         navigate('/auth');
-        return;
       }
-      setUser(user);
-      setLoading(false);
-      
-      // Load initial unread count
-      const count = await getUnreadMessageCount(user.id);
-      setUnreadMessageCount(count);
     };
 
-    getUser().catch((error) => {
-      console.error('Error in getUser:', error);
-      setLoading(false);
-    });
+    getUser();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -138,8 +164,13 @@ const GradNet: React.FC = () => {
           return <SocialFeed user={user} />;
         case 'mentors':
           return <MentorDiscovery user={user} />;
-        case 'messages':
-          return <MessageCenter user={user} />;
+  // case 'messages':
+  //   return (
+  //     <div className="flex flex-col items-center justify-center p-8 text-center">
+  //       <h3 className="text-lg font-semibold text-gray-900 mb-2">Messages are disabled</h3>
+  //       <p className="text-gray-600">Please check back later.</p>
+  //     </div>
+  //   );
         case 'documents':
           return <DocumentLibrary user={user} />;
         case 'network':
@@ -203,7 +234,7 @@ const GradNet: React.FC = () => {
                   Social Feed
                 </button>
 
-                <button
+                {/* <button
                   onClick={() => handleTabChange('mentors')}
                   className={`w-full flex items-center px-6 py-5 text-base font-medium rounded-xl transition-colors ${
                     activeTab === 'mentors'
@@ -213,24 +244,9 @@ const GradNet: React.FC = () => {
                 >
                   <Users className="h-5 w-5 mr-5" />
                   Find Mentors
-                </button>
+                </button> */}
 
-                <button
-                  onClick={() => handleTabChange('messages')}
-                  className={`w-full flex items-center px-6 py-5 text-base font-medium rounded-xl transition-colors ${
-                    activeTab === 'messages'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <MessageCircle className="h-5 w-5 mr-5" />
-                  Messages
-                  {unreadMessageCount > 0 && (
-                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {unreadMessageCount}
-                    </span>
-                  )}
-                </button>
+                {/* Messaging tab disabled */}
 
                 <button
                   onClick={() => handleTabChange('documents')}
@@ -244,17 +260,17 @@ const GradNet: React.FC = () => {
                   Documents
                 </button>
 
-                <button
+                {/* <button
                   onClick={() => handleTabChange('network')}
                   className={`w-full flex items-center px-6 py-5 text-base font-medium rounded-xl transition-colors ${
                     activeTab === 'network'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
-                >**/
+                >
                   <Network className="h-5 w-5 mr-5" />
                   My Network
-                </button>
+                </button> */}
               </nav>
             </div>
           </div>
@@ -269,7 +285,7 @@ const GradNet: React.FC = () => {
 
         {/* Mobile Bottom Navigation */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-3 gap-1">
             <button
               onClick={() => handleTabChange('feed')}
               className={`flex flex-col items-center py-2 px-1 ${
@@ -280,7 +296,7 @@ const GradNet: React.FC = () => {
               <span className="text-xs mt-1">Feed</span>
             </button>
 
-            <button
+            {/* <button
               onClick={() => handleTabChange('mentors')}
               className={`flex flex-col items-center py-2 px-1 ${
                 activeTab === 'mentors' ? 'text-blue-600' : 'text-gray-500'
@@ -288,22 +304,9 @@ const GradNet: React.FC = () => {
             >
               <Users className="h-5 w-5" />
               <span className="text-xs mt-1">Mentors</span>
-            </button>
+            </button> */}
 
-            <button
-              onClick={() => handleTabChange('messages')}
-              className={`flex flex-col items-center py-2 px-1 relative ${
-                activeTab === 'messages' ? 'text-blue-600' : 'text-gray-500'
-              }`}
-            >
-              <MessageCircle className="h-5 w-5" />
-              <span className="text-xs mt-1">Messages</span>
-              {unreadMessageCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {unreadMessageCount}
-                </span>
-              )}
-            </button>
+            {/* Messaging tab disabled */}
 
             <button
               onClick={() => handleTabChange('documents')}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import {
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { toast } from '@/hooks/use-toast';
 import { dashboardService } from '@/services/dashboardService';
+import { universityImageService } from '@/services/universityImageService';
 
 interface UniversityRecommendation {
   id: string;
@@ -93,20 +94,47 @@ export const UniversityRecommendations: React.FC<UniversityRecommendationsProps>
     }
   };
 
-  const getUniversityImage = (universityName: string) => {
-    // Using the same image mapping from MatchedUniversities.tsx
-    const imageMap: Record<string, string> = {
-      'Stanford University': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=200&fit=crop',
-      'Massachusetts Institute of Technology': 'https://images.unsplash.com/photo-1564981797816-1043664bf78d?w=400&h=200&fit=crop',
-      'California Institute of Technology': 'https://images.unsplash.com/photo-1562774053-701939374585?w=400&h=200&fit=crop',
-      'University of Toronto': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=200&fit=crop',
-      'University of Cambridge': 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400&h=200&fit=crop',
-      'University of Washington': 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=400&h=200&fit=crop',
-      'University of California, Irvine': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=200&fit=crop'
-    };
-    return universityName in imageMap ? imageMap[universityName] : 
-           university.logo_url || 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=400&h=200&fit=crop';
+  // Lightweight cache to avoid repeated async calls per render
+  const [imgCache, setImgCache] = useState<Map<string, string>>(new Map());
+
+  const deriveCountry = (location: string | undefined) => {
+    if (!location) return 'United States';
+    const l = location.toLowerCase();
+    if (l.includes('canada')) return 'Canada';
+    if (l.includes('united kingdom') || l.includes('london') || l.includes('uk')) return 'United Kingdom';
+    if (l.includes('germany') || l.includes('munich')) return 'Germany';
+    if (l.includes('france') || l.includes('paris')) return 'France';
+    if (l.includes('switzerland') || l.includes('zurich')) return 'Switzerland';
+    if (l.includes('singapore')) return 'Singapore';
+    if (l.includes('australia') || l.includes('sydney') || l.includes('melbourne')) return 'Australia';
+    return 'United States';
   };
+
+  const getUniImage = (u: University) => {
+    const country = deriveCountry(u.location);
+    const key = `${u.name}_${country}`;
+    return imgCache.get(key) || u.logo_url || 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=400&h=200&fit=crop';
+  };
+
+  // Preload images when filtered list changes
+  useEffect(() => {
+    const preload = async () => {
+      const next = new Map(imgCache);
+      for (const u of filteredUniversities) {
+        const country = deriveCountry(u.location);
+        const key = `${u.name}_${country}`;
+        if (!next.has(key)) {
+          try {
+            const url = await universityImageService.getUniversityImage(u.name, country);
+            next.set(key, url);
+          } catch {}
+        }
+      }
+      setImgCache(next);
+    };
+    preload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredUniversities.map(u => u.name + (u.location || 'NA')).join('|')]);
 
   const handlePickUniversity = async (university: University) => {
     const universityId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -243,9 +271,13 @@ export const UniversityRecommendations: React.FC<UniversityRecommendationsProps>
                         {/* University Image */}
                         <div className="flex-shrink-0">
                           <img
-                            src={getUniversityImage(university.name)}
+                            src={getUniImage(university)}
                             alt={university.name}
                             className="w-20 h-12 object-cover rounded-lg"
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=400&h=200&fit=crop';
+                            }}
                           />
                         </div>
 

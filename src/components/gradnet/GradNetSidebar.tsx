@@ -49,17 +49,17 @@ const GradNetSidebar: React.FC<GradNetSidebarProps> = ({
         { id: 'applicants', label: 'Find Applicants', icon: GraduationCap, shortLabel: 'Applicants' },
         { id: 'requests', label: 'Connection Requests', icon: UserPlus, shortLabel: 'Requests' },
         { id: 'messages', label: 'Messages', icon: MessageCircle, shortLabel: 'Messages' },
-        { id: 'network', label: 'My Network', icon: TrendingUp, shortLabel: 'Network' },
+        // { id: 'network', label: 'My Network', icon: TrendingUp, shortLabel: 'Network' },
         { id: 'documents', label: 'Documents', icon: FileText, shortLabel: 'Docs' }
       ];
     } 
       return [
         { id: 'feed', label: 'Social Feed', icon: Globe, shortLabel: 'Feed' },
-        { id: 'mentors', label: 'Find Mentors', icon: Users, shortLabel: 'Mentors' },
+        // { id: 'mentors', label: 'Find Mentors', icon: Users, shortLabel: 'Mentors' },
         { id: 'requests', label: 'Connection Requests', icon: UserPlus, shortLabel: 'Requests' },
         { id: 'messages', label: 'Messages', icon: MessageCircle, shortLabel: 'Messages' },
-        { id: 'documents', label: 'Documents', icon: FileText, shortLabel: 'Docs' },
-        { id: 'network', label: 'My Network', icon: TrendingUp, shortLabel: 'Network' }
+        { id: 'documents', label: 'Documents', icon: FileText, shortLabel: 'Docs' }
+        // { id: 'network', label: 'My Network', icon: TrendingUp, shortLabel: 'Network' }
       ];
     
   };

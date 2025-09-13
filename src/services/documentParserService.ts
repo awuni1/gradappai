@@ -144,24 +144,9 @@ class DocumentParserService {
     
     try {
       // Try different approaches to set up PDF.js worker
-      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        try {
-          // Try the exact version we have installed (5.4.149)
-          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.js';
-          console.log('📄 Using PDF.js worker from unpkg CDN');
-        } catch (workerError) {
-          console.warn('⚠️ Could not set PDF.js worker from unpkg, trying cdnjs...');
-          try {
-            // Try cdnjs with different versions
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.269/pdf.worker.min.js';
-            console.log('📄 Using PDF.js worker from cdnjs');
-          } catch (cdnError) {
-            console.warn('⚠️ Could not set PDF.js worker from CDN, disabling worker...');
-            // Disable worker - less efficient but should work in all browsers
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-          }
-        }
-      }
+  // Always use local worker for reliability
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+  // ...existing code...
       
       console.log('📄 Reading file as array buffer...');
       const arrayBuffer = await file.arrayBuffer();

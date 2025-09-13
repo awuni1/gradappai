@@ -34,16 +34,10 @@ import AuthenticatedHeader from '@/components/AuthenticatedHeader';
 import SEOHead from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
+import { documentTemplates, getTemplatesByType, DocumentTemplate as TemplateType } from '@/data/documentTemplates';
 
-interface DocumentTemplate {
-  id: string;
-  name: string;
-  type: 'sop' | 'cover_letter' | 'personal_statement' | 'research_proposal';
-  description: string;
-  variables: string[];
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimatedTime: number;
-}
+// Use the DocumentTemplate interface from the data file
+type DocumentTemplate = TemplateType;
 
 interface GeneratedDocument {
   id: string;
@@ -65,7 +59,7 @@ export default function DocumentGenerator() {
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('generator');
   const [generating, setGenerating] = useState(false);
-  const [selectedType, setSelectedType] = useState<'sop' | 'cover_letter' | 'personal_statement' | 'research_proposal'>('sop');
+  const [selectedType, setSelectedType] = useState<DocumentTemplate['type']>('sop');
   const [documentTitle, setDocumentTitle] = useState('');
   const [generatedContent, setGeneratedContent] = useState('');
   const [saving, setSaving] = useState(false);
@@ -105,45 +99,8 @@ export default function DocumentGenerator() {
     specificRequirements: ''
   });
 
-  // Templates data
-  const templates: DocumentTemplate[] = [
-    {
-      id: '1',
-      name: 'Graduate School Statement of Purpose',
-      type: 'sop',
-      description: 'Comprehensive SOP template for graduate school applications',
-      variables: ['University Name', 'Program Name', 'Research Interests', 'Career Goals'],
-      difficulty: 'intermediate',
-      estimatedTime: 45
-    },
-    {
-      id: '2',
-      name: 'Research Proposal',
-      type: 'research_proposal',
-      description: 'Structured research proposal for PhD applications',
-      variables: ['Research Topic', 'Methodology', 'Expected Outcomes'],
-      difficulty: 'advanced',
-      estimatedTime: 120
-    },
-    {
-      id: '3',
-      name: 'Cover Letter',
-      type: 'cover_letter',
-      description: 'Professional cover letter for academic positions',
-      variables: ['Position Title', 'Institution', 'Key Qualifications'],
-      difficulty: 'beginner',
-      estimatedTime: 30
-    },
-    {
-      id: '4',
-      name: 'Personal Statement',
-      type: 'personal_statement',
-      description: 'Personal narrative highlighting your journey and motivations',
-      variables: ['Personal Background', 'Challenges Overcome', 'Future Aspirations'],
-      difficulty: 'intermediate',
-      estimatedTime: 60
-    }
-  ];
+  // Get available templates
+  const templates = documentTemplates;
 
   useEffect(() => {
     if (user) {
@@ -551,6 +508,39 @@ Demonstrate deep understanding of the field, methodological rigor, and feasibili
     }
   };
 
+  const replaceTemplatePlaceholders = (content: string, placeholders: Record<string, string>): string => {
+    let processedContent = content;
+    
+    // Replace all placeholders with their default values
+    Object.entries(placeholders).forEach(([key, value]) => {
+      const placeholder = `[${key}]`;
+      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      processedContent = processedContent.replace(regex, value);
+    });
+    
+    return processedContent;
+  };
+
+  const useTemplate = (template: DocumentTemplate) => {
+    // Set the document type
+    setSelectedType(template.type);
+    
+    // Pre-fill the content with the template, replacing placeholders with example values
+    const processedContent = replaceTemplatePlaceholders(template.content, template.placeholders);
+    setGeneratedContent(processedContent);
+    
+    // Set a default title
+    setDocumentTitle(template.name);
+    
+    // Switch to the generator tab for editing
+    setActiveTab('generator');
+    
+    toast({
+      title: 'Template loaded',
+      description: `${template.name} has been loaded. You can now customize it with your information.`,
+    });
+  };
+
   const shareDocument = async (content: string, title: string) => {
     try {
       setSharing(true);
@@ -670,6 +660,10 @@ Demonstrate deep understanding of the field, methodological rigor, and feasibili
                         <SelectItem value="cover_letter">Cover Letter</SelectItem>
                         <SelectItem value="personal_statement">Personal Statement</SelectItem>
                         <SelectItem value="research_proposal">Research Proposal</SelectItem>
+                        <SelectItem value="recommendation_request">Recommendation Request</SelectItem>
+                        <SelectItem value="thank_you_letter">Thank You Letter</SelectItem>
+                        <SelectItem value="cv">Academic CV</SelectItem>
+                        <SelectItem value="resume">Resume</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -918,23 +912,27 @@ Demonstrate deep understanding of the field, methodological rigor, and feasibili
                       </div>
                       
                       <div>
-                        <span className="text-sm font-medium">Variables:</span>
+                        <span className="text-sm font-medium">Structure:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {template.variables.slice(0, 3).map((variable, index) => (
+                          {template.structure.slice(0, 3).map((section, index) => (
                             <Badge key={index} variant="outline" className="text-xs">
-                              {variable}
+                              {section}
                             </Badge>
                           ))}
-                          {template.variables.length > 3 && (
+                          {template.structure.length > 3 && (
                             <Badge variant="outline" className="text-xs">
-                              +{template.variables.length - 3} more
+                              +{template.structure.length - 3} more
                             </Badge>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    <Button className="w-full" variant="outline">
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={() => useTemplate(template)}
+                    >
                       Use Template
                     </Button>
                   </CardContent>

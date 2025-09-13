@@ -105,7 +105,7 @@ self.addEventListener('push', (event) => {
           {
             action: 'join',
             title: 'Join Session',
-            icon: '/icons/video.png'
+            icon: '/icons/video.svg'
           },
           {
             action: 'dismiss',
@@ -118,7 +118,7 @@ self.addEventListener('push', (event) => {
           {
             action: 'view',
             title: 'View Request',
-            icon: '/icons/user.png'
+            icon: '/icons/user.svg'
           },
           {
             action: 'dismiss',

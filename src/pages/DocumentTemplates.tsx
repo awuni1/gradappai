@@ -12,70 +12,19 @@ import {
   Eye,
   Lightbulb,
   CheckCircle,
-  Star
+  Star,
+  Clock
 } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
+import { documentTemplates, getTemplatesByType } from '@/data/documentTemplates';
 
 const DocumentTemplates: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const documentType = searchParams.get('type') as 'sop' | 'ps' || 'sop';
+  const documentType = searchParams.get('type') as 'sop' | 'personal_statement' || 'sop';
 
-  const sopTemplates = [
-    {
-      id: 1,
-      title: 'Computer Science Research Focus',
-      description: 'Template for CS students focusing on research and PhD applications',
-      difficulty: 'Advanced',
-      rating: 4.9,
-      sections: ['Introduction', 'Research Experience', 'Academic Goals', 'Why This Program', 'Conclusion']
-    },
-    {
-      id: 2,
-      title: 'Professional to Graduate School',
-      description: 'For working professionals transitioning to graduate studies',
-      difficulty: 'Intermediate',
-      rating: 4.7,
-      sections: ['Career Background', 'Motivation for Graduate Study', 'Academic Preparation', 'Goals']
-    },
-    {
-      id: 3,
-      title: 'International Student Template',
-      description: 'Tailored for international applicants highlighting cultural perspective',
-      difficulty: 'Intermediate',
-      rating: 4.8,
-      sections: ['Background', 'Cultural Perspective', 'Academic Journey', 'Future Goals']
-    }
-  ];
-
-  const psTemplates = [
-    {
-      id: 1,
-      title: 'Personal Growth Journey',
-      description: 'Focus on personal development and life experiences',
-      difficulty: 'Beginner',
-      rating: 4.6,
-      sections: ['Early Influences', 'Challenges Overcome', 'Values & Motivation', 'Future Vision']
-    },
-    {
-      id: 2,
-      title: 'Diversity & Inclusion Focus',
-      description: 'Highlighting unique background and perspective',
-      difficulty: 'Intermediate',
-      rating: 4.8,
-      sections: ['Background', 'Unique Perspective', 'Contributions', 'Community Impact']
-    },
-    {
-      id: 3,
-      title: 'Career Change Narrative',
-      description: 'For students changing fields or career direction',
-      difficulty: 'Advanced',
-      rating: 4.7,
-      sections: ['Previous Experience', 'Transition Moment', 'New Direction', 'Goals']
-    }
-  ];
-
-  const templates = documentType === 'sop' ? sopTemplates : psTemplates;
+  // Get templates by type from the real data
+  const templates = getTemplatesByType(documentType);
   const documentTitle = documentType === 'sop' ? 'Statement of Purpose' : 'Personal Statement';
 
   const writingTips = documentType === 'sop' ? [
@@ -134,50 +83,59 @@ const DocumentTemplates: React.FC = () => {
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <div>
-                            <CardTitle className="text-xl">{template.title}</CardTitle>
+                            <CardTitle className="text-xl">{template.name}</CardTitle>
                             <CardDescription className="mt-2">
                               {template.description}
                             </CardDescription>
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant={
-                              template.difficulty === 'Beginner' ? 'secondary' :
-                              template.difficulty === 'Intermediate' ? 'default' : 'destructive'
+                              template.difficulty === 'beginner' ? 'secondary' :
+                              template.difficulty === 'intermediate' ? 'default' : 'destructive'
                             }>
-                              {template.difficulty}
+                              {template.difficulty.charAt(0).toUpperCase() + template.difficulty.slice(1)}
                             </Badge>
                             <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                              <span className="text-sm font-medium">{template.rating}</span>
+                              <Clock className="h-4 w-4 text-blue-500" />
+                              <span className="text-sm font-medium">{template.estimatedTime}m</span>
                             </div>
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent>
                         <div className="mb-4">
-                          <h4 className="font-medium text-gray-900 mb-2">Template Sections:</h4>
+                          <h4 className="font-medium text-gray-900 mb-2">Template Structure:</h4>
                           <div className="flex flex-wrap gap-2">
-                            {template.sections.map((section, index) => (
+                            {template.structure.map((section, index) => (
                               <Badge key={index} variant="outline" className="text-xs">
                                 {section}
                               </Badge>
                             ))}
                           </div>
                         </div>
+                        <div className="mb-4">
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Word Count:</span> ~{template.wordCount} words
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Category:</span> {template.category.charAt(0).toUpperCase() + template.category.slice(1)}
+                          </div>
+                        </div>
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
                             className="border-gradapp-primary text-gradapp-primary hover:bg-gradapp-primary hover:text-white"
+                            onClick={() => navigate('/document-generator')}
                           >
                             <Eye className="h-4 w-4 mr-2" />
-                            Preview
+                            Use Template
                           </Button>
                           <Button
                             variant="outline"
                             className="border-gradapp-primary text-gradapp-primary hover:bg-gradapp-primary hover:text-white"
                           >
                             <Download className="h-4 w-4 mr-2" />
-                            Download
+                            Preview
                           </Button>
                         </div>
                       </CardContent>

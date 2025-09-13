@@ -943,52 +943,40 @@ export default function UniversityMatching() {
     
     return (
       <Card key={university.id} className="hover:shadow-lg transition-shadow overflow-hidden">
-        {/* Campus Image Header */}
-        <div className="relative h-48 overflow-hidden">
-          <img 
-            src={campusImage || 'https://images.unsplash.com/photo-1562774053-701939374585?w=500&h=300&fit=crop&auto=format&q=80'}
-            alt={`${university.name} campus`}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              // Fallback to a default university image if the primary image fails
-              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1562774053-701939374585?w=500&h=300&fit=crop&auto=format&q=80';
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex-shrink-0">
-                <img 
-                  src={university.logo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(university.name.substring(0, SUBSTRING_LENGTH))}&size=40&background=ffffff&color=2c5aa0`}
-                  alt={`${university.name} logo`}
-                  className="w-10 h-10 rounded bg-white/90 p-1 object-contain border"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(university.name.substring(0, SUBSTRING_LENGTH))}&size=40&background=ffffff&color=2c5aa0`;
-                  }}
-                />
+        {/* Header with logo and info */}
+        <div className="p-6 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex-shrink-0">
+              <img 
+                src={university.logo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(university.name.substring(0, SUBSTRING_LENGTH))}&size=40&background=ffffff&color=2c5aa0`}
+                alt={`${university.name} logo`}
+                className="w-10 h-10 rounded bg-gray-50 p-1 object-contain border"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(university.name.substring(0, SUBSTRING_LENGTH))}&size=40&background=ffffff&color=2c5aa0`;
+                }}
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-bold text-lg text-gray-900 truncate">{university.name}</h3>
+                {hasComprehensiveGuide && (
+                  <Badge variant="secondary" className="text-xs bg-green-500 text-white">
+                    Complete Guide
+                  </Badge>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-bold text-lg text-white truncate">{university.name}</h3>
-                  {hasComprehensiveGuide && (
-                    <Badge variant="secondary" className="text-xs bg-green-500 text-white">
-                      Complete Guide
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 text-white/90">
-                  <MapPin className="h-4 w-4" />
-                  {university.city}, {university.country}
-                </div>
+              <div className="flex items-center gap-1 text-gray-600">
+                <MapPin className="h-4 w-4" />
+                {university.city}, {university.country}
               </div>
             </div>
+            <Badge 
+              variant="outline" 
+              className="bg-gray-50 border-gray-200"
+            >
+              {university.state_province || university.country || 'University'}
+            </Badge>
           </div>
-          <Badge 
-            variant="outline" 
-            className="absolute top-4 right-4 bg-white/90 border-white/20"
-          >
-            {university.state_province || university.country || 'University'}
-          </Badge>
         </div>
         
         <CardContent className="p-6">
@@ -1298,7 +1286,7 @@ export default function UniversityMatching() {
                   {generating ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ChatGPT Matching... (~10s)
+                      AI Matching... (~10s)
                     </>
                   ) : (
                     <>
