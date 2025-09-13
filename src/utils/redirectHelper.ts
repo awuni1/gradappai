@@ -9,11 +9,7 @@
 export function getAppOrigin(): string {
   try {
     if (typeof window === 'undefined') return 'https://www.gradappai.com';
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return window.location.origin;
-    }
-    return 'https://www.gradappai.com';
+    return window.location.origin;
   } catch {
     return 'https://www.gradappai.com';
   }

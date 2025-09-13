@@ -19,11 +19,13 @@ const AuthCallback: React.FC = () => {
 
   const handleAuthCallback = async () => {
     try {
-      // First, check if there are OAuth errors in the URL parameters
+      // First, check if there are OAuth errors in the URL parameters (query or hash)
       const urlParams = new URLSearchParams(window.location.search);
-      const urlError = urlParams.get('error');
-      const errorCode = urlParams.get('error_code');
-      const errorDescription = urlParams.get('error_description');
+      const hash = window.location.hash || '';
+      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+      const urlError = urlParams.get('error') || hashParams.get('error');
+      const errorCode = urlParams.get('error_code') || hashParams.get('error_code');
+      const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
 
       if (urlError) {
         console.error('OAuth URL Error:', { urlError, errorCode, errorDescription });
@@ -58,7 +60,20 @@ const AuthCallback: React.FC = () => {
       }
 
       // Try to handle the OAuth callback by checking for auth code/token in URL
-      const { data, error: callbackError } = await supabase.auth.getSessionFromUrl();
+      // Prefer code exchange (PKCE) first, then fallback to hash parsing
+      let callbackError: any = null;
+      try {
+        const { data, error } = await (supabase.auth as any).exchangeCodeForSession?.(window.location.href);
+        if (error) callbackError = error;
+      } catch (e) {
+        callbackError = e;
+      }
+
+      if (callbackError) {
+        // Fallback to getSessionFromUrl for hash-based flows
+        const { error } = await supabase.auth.getSessionFromUrl();
+        callbackError = error;
+      }
       
       if (callbackError) {
         console.error('OAuth callback processing error:', callbackError);
@@ -75,7 +90,7 @@ const AuthCallback: React.FC = () => {
         return;
       }
 
-      // Get the current session
+  // Get the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {

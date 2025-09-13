@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Configuration Diagnostic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+        }
+        .success { background-color: #e8f5e8; border-color: #4caf50; }
+        .warning { background-color: #fff3cd; border-color: #ffc107; }
+        .error { background-color: #f8d7da; border-color: #dc3545; }
+        .code {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .redirect-urls {
+            list-style-type: none;
+            padding: 0;
+        }
+        .redirect-urls li {
+            background: #f8f9fa;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 OAuth Configuration Diagnostic</h1>
+        <p>This tool helps diagnose OAuth redirect URL issues.</p>
+
+        <div id="environment-info" class="section">
+            <h2>Current Environment</h2>
+            <div id="env-details"></div>
+        </div>
+
+        <div id="supabase-config" class="section">
+            <h2>Supabase Configuration</h2>
+            <p><strong>Supabase URL:</strong> <span id="supabase-url"></span></p>
+            <div id="config-status"></div>
+        </div>
+
+        <div id="redirect-urls" class="section">
+            <h2>Expected OAuth Redirect URLs</h2>
+            <p>Configure these URLs in your Supabase Dashboard:</p>
+            <ul class="redirect-urls" id="expected-urls"></ul>
+        </div>
+
+        <div id="test-section" class="section">
+            <h2>Test OAuth Flow</h2>
+            <p>Click these buttons to test OAuth redirects (will show the actual redirect URL):</p>
+            <button onclick="testGoogleOAuth()">Test Google OAuth</button>
+            <button onclick="testGitHubOAuth()">Test GitHub OAuth</button>
+            <div id="test-results"></div>
+        </div>
+
+        <div id="instructions" class="section">
+            <h2>📋 Configuration Instructions</h2>
+            <ol>
+                <li>Go to your <a href="https://app.supabase.com/project/yeqfsjzcvqgannxdivau/auth/settings" target="_blank">Supabase Authentication Settings</a></li>
+                <li>Update <strong>Site URL</strong> to: <code>https://www.gradappai.com</code></li>
+                <li>In <strong>Redirect URLs</strong>, add:
+                    <ul>
+                        <li><code>https://www.gradappai.com/auth/callback</code></li>
+                        <li><code>http://localhost:5173/auth/callback</code> (for development)</li>
+                    </ul>
+                </li>
+                <li>Save the configuration</li>
+                <li>Wait 1-2 minutes for changes to propagate</li>
+                <li>Test OAuth login again</li>
+            </ol>
+        </div>
+    </div>
+
+    <script type="module">
+        // Environment detection
+        function getEnvironmentInfo() {
+            const hostname = window.location.hostname;
+            const origin = window.location.origin;
+            const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+            
+            return {
+                hostname,
+                origin,
+                isLocalhost,
+                expectedOrigin: isLocalhost ? origin : 'https://www.gradappai.com'
+            };
+        }
+
+        // Get app origin (same logic as in authService)
+        function getAppOrigin() {
+            const host = window.location.hostname;
+            if (host === 'localhost' || host === '127.0.0.1') {
+                return window.location.origin;
+            }
+            return 'https://www.gradappai.com';
+        }
+
+        // Initialize diagnostic
+        function initDiagnostic() {
+            const env = getEnvironmentInfo();
+            const appOrigin = getAppOrigin();
+            
+            // Environment info
+            document.getElementById('env-details').innerHTML = `
+                <div class="code">
+                    <strong>Current Hostname:</strong> ${env.hostname}<br>
+                    <strong>Current Origin:</strong> ${env.origin}<br>
+                    <strong>Is Localhost:</strong> ${env.isLocalhost}<br>
+                    <strong>App Origin (used for OAuth):</strong> ${appOrigin}
+                </div>
+            `;
+
+            // Supabase config
+            document.getElementById('supabase-url').textContent = 'https://yeqfsjzcvqgannxdivau.supabase.co';
+            
+            const isProduction = !env.isLocalhost;
+            const configClass = isProduction ? 'success' : 'warning';
+            const configMessage = isProduction ? 
+                'Running in production mode - OAuth will redirect to www.gradappai.com' :
+                'Running in development mode - OAuth will use localhost';
+            
+            document.getElementById('config-status').innerHTML = `
+                <div class="${configClass}">
+                    ${configMessage}
+                </div>
+            `;
+
+            // Expected URLs
+            const expectedUrls = [
+                `${appOrigin}/auth/callback`,
+                env.isLocalhost ? null : 'http://localhost:5173/auth/callback (for development)'
+            ].filter(Boolean);
+
+            document.getElementById('expected-urls').innerHTML = expectedUrls
+                .map(url => `<li>${url}</li>`)
+                .join('');
+        }
+
+        // Test OAuth functions
+        window.testGoogleOAuth = function() {
+            const redirectTo = `${getAppOrigin()}/auth/callback`;
+            const testResults = document.getElementById('test-results');
+            
+            testResults.innerHTML = `
+                <div class="code">
+                    <strong>Google OAuth would redirect to:</strong><br>
+                    ${redirectTo}
+                </div>
+                <p>If this is incorrect, check your Supabase Dashboard configuration.</p>
+            `;
+        };
+
+        window.testGitHubOAuth = function() {
+            const redirectTo = `${getAppOrigin()}/auth/callback`;
+            const testResults = document.getElementById('test-results');
+            
+            testResults.innerHTML = `
+                <div class="code">
+                    <strong>GitHub OAuth would redirect to:</strong><br>
+                    ${redirectTo}
+                </div>
+                <p>If this is incorrect, check your Supabase Dashboard configuration.</p>
+            `;
+        };
+
+        // Initialize on page load
+        initDiagnostic();
+    </script>
+</body>
+</html>

@@ -94,17 +94,14 @@ export interface UserProfile {
 }
 
 // Helper: pick correct app origin for redirects
-// - On localhost, keep current origin for dev
-// - On any deployed host, force the canonical production domain
+// - Always use the current origin so the OAuth state cookie domain matches
+// - Works for localhost and any deployed host (with or without www)
 function getAppOrigin(): string {
   try {
     if (typeof window === 'undefined') return 'https://www.gradappai.com';
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return window.location.origin;
-    }
-    return 'https://www.gradappai.com';
+    return window.location.origin;
   } catch {
+    // Safe fallback
     return 'https://www.gradappai.com';
   }
 }
