@@ -1,0 +1,178 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import authService from '@/services/authService';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { useToast } from '@/components/ui/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+
+const AuthCallback: React.FC = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('Processing authentication...');
+
+  useEffect(() => {
+    handleAuthCallback();
+  }, []);
+
+  const handleAuthCallback = async () => {
+    try {
+      // Get the session from URL hash or search params
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        setStatus('error');
+        setMessage('Authentication failed. Please try again.');
+        
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: sessionError.message || "Failed to authenticate with Google",
+        });
+        
+        // Redirect to sign-in after error
+        setTimeout(() => navigate('/auth'), 3000);
+        return;
+      }
+
+      if (!session || !session.user) {
+        setStatus('error');
+        setMessage('No authentication session found.');
+        
+        // Redirect to sign-in if no session
+        setTimeout(() => navigate('/auth'), 2000);
+        return;
+      }
+
+      // Authentication successful
+      setStatus('success');
+      setMessage('Authentication successful! Redirecting...');
+      
+      const user = session.user;
+      
+      // Create user profile if it doesn't exist (for OAuth users)
+      try {
+        const { profile } = await authService.getUserProfile(user.id);
+        
+        if (!profile) {
+          // Create profile for new OAuth user
+          const profileData = {
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+            email: user.email || '',
+            profile_picture_url: user.user_metadata?.avatar_url || '',
+            role: 'applicant' // Default role, can be changed later
+          };
+          
+          await authService.createUserProfile(user.id, profileData);
+        }
+      } catch (error) {
+        console.warn('Could not create/fetch user profile:', error);
+        // Don't block the authentication flow for this
+      }
+
+      toast({
+        title: "Welcome! 👋",
+        description: "You've successfully signed in with Google.",
+      });
+
+      // Get appropriate redirect URL based on user status
+      try {
+        const redirectUrl = await authService.getPostAuthRedirect(user.id);
+        navigate(redirectUrl);
+      } catch (error) {
+        console.warn('Could not determine redirect URL:', error);
+        // Default fallback
+        navigate('/dashboard');
+      }
+
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      setStatus('error');
+      setMessage('An unexpected error occurred during authentication.');
+      
+      toast({
+        variant: "destructive",
+        title: "Authentication Error",
+        description: "An unexpected error occurred. Please try signing in again.",
+      });
+      
+      // Redirect to sign-in after error
+      setTimeout(() => navigate('/auth'), 3000);
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'loading':
+        return <Loader2 className="h-8 w-8 animate-spin text-blue-500" />;
+      case 'success':
+        return <CheckCircle className="h-8 w-8 text-green-500" />;
+      case 'error':
+        return <XCircle className="h-8 w-8 text-red-500" />;
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (status) {
+      case 'loading':
+        return 'border-blue-200 bg-blue-50';
+      case 'success':
+        return 'border-green-200 bg-green-50';
+      case 'error':
+        return 'border-red-200 bg-red-50';
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full">
+        <div className={`bg-white rounded-lg shadow-lg border-2 ${getStatusColor()} p-8`}>
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              {getStatusIcon()}
+            </div>
+            
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {status === 'loading' && 'Authenticating...'}
+              {status === 'success' && 'Success!'}
+              {status === 'error' && 'Authentication Failed'}
+            </h2>
+            
+            <p className="text-gray-600 mb-6">
+              {message}
+            </p>
+            
+            {status === 'loading' && (
+              <div className="flex justify-center">
+                <LoadingSpinner size="sm" />
+              </div>
+            )}
+            
+            {status === 'error' && (
+              <Alert className="mt-4 border-red-200 bg-red-50">
+                <XCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  You'll be redirected to the sign-in page in a few seconds.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {status === 'success' && (
+              <Alert className="mt-4 border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  Taking you to your dashboard...
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuthCallback;

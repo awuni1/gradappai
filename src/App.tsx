@@ -24,6 +24,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 // Lazy load less frequently accessed pages
 const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Programs = lazy(() => import("./pages/Programs"));
 const CVAnalysis = lazy(() => import("./pages/CVAnalysis"));
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/test" element={<TestPage />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<Suspense fallback={<LoadingSpinner />}><AuthCallback /></Suspense>} />
               <Route path="/auth/student" element={<StudentAuth />} />
               <Route path="/auth/mentor" element={<Suspense fallback={<LoadingSpinner />}><MentorAuth /></Suspense>} />
               <Route path="/about" element={<Suspense fallback={<LoadingSpinner />}><About /></Suspense>} />
