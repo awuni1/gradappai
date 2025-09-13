@@ -67,8 +67,8 @@ const AuthCallback: React.FC = () => {
         return;
       }
 
-      // Try to handle the OAuth callback by checking for auth code/token in URL
-      // Prefer code exchange (PKCE) first, then fallback to hash parsing
+  // Try to handle the OAuth callback by checking for auth code/token in URL
+  // With PKCE enabled globally, we expect a `code` param and use exchangeCodeForSession
       let callbackError: any = null;
       let processed = false;
 
@@ -90,29 +90,22 @@ const AuthCallback: React.FC = () => {
         }
       }
 
-      // 2) Fallback for legacy hash-based flows
+      // 2) Fallback: legacy hash-based flows (should not occur with PKCE). If present, clean URL and bounce to /auth to restart.
       if (!processed) {
-        const getSessionFromUrl = (supabase.auth as any).getSessionFromUrl;
-        if (typeof getSessionFromUrl === 'function') {
+        if (hashParams.get('access_token') || hashParams.get('refresh_token')) {
+          // Clean the URL and redirect to /auth to restart fresh
           try {
-            const { error } = await withTimeout(getSessionFromUrl(), 6000, 'getSessionFromUrl');
-            if (!error) processed = true; else callbackError = error;
-          } catch (e) {
-            callbackError = e;
-          }
-        } else if (hashParams.get('access_token') && hashParams.get('refresh_token')) {
-          try {
-            const access_token = hashParams.get('access_token') as string;
-            const refresh_token = hashParams.get('refresh_token') as string;
-            const { error } = await withTimeout(
-              supabase.auth.setSession({ access_token, refresh_token }),
-              6000,
-              'setSession'
-            );
-            if (!error) processed = true; else callbackError = error;
-          } catch (e) {
-            callbackError = e;
-          }
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } catch {}
+          setStatus('error');
+          setMessage('Unexpected token response. Restarting sign-in...');
+          toast({
+            variant: 'destructive',
+            title: 'Restarting sign-in',
+            description: 'We received an unexpected response. Please try again.',
+          });
+          setTimeout(() => navigate('/auth'), 1000);
+          return;
         }
       }
       

@@ -12,4 +12,11 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    // Prefer code (PKCE) flow to avoid hash tokens in URL
+    flowType: 'pkce',
+    // We'll handle the callback manually in our AuthCallback route
+    detectSessionInUrl: false,
+  },
+});
