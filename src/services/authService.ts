@@ -93,6 +93,22 @@ export interface UserProfile {
   last_login?: string;
 }
 
+// Helper: pick correct app origin for redirects
+// - On localhost, keep current origin for dev
+// - On any deployed host, force the canonical production domain
+function getAppOrigin(): string {
+  try {
+    if (typeof window === 'undefined') return 'https://www.gradappai.com';
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return window.location.origin;
+    }
+    return 'https://www.gradappai.com';
+  } catch {
+    return 'https://www.gradappai.com';
+  }
+}
+
 class AuthService {
   /**
    * Sign up a new user with email and password
@@ -128,7 +144,7 @@ class AuthService {
         };
       }
       
-      const redirectUrl = `${window.location.origin}/`;
+  const redirectUrl = `${getAppOrigin()}/`;
       
       const { data: authData, error } = await supabase.auth.signUp({
         email: sanitizeInput(data.email),
@@ -264,7 +280,7 @@ class AuthService {
   async resetPassword(email: string): Promise<{ error: AuthError | null }> {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${getAppOrigin()}/reset-password`,
       });
       
       return { error };
@@ -534,8 +550,8 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
     try {
-    // Always use current site origin (works for prod and local)
-    const redirectTo = `${window.location.origin}/auth/callback`;
+    // Use canonical origin in prod, localhost in dev
+    const redirectTo = `${getAppOrigin()}/auth/callback`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -559,8 +575,8 @@ class AuthService {
    */
   async signInWithGitHub(): Promise<{ error: AuthError | null }> {
     try {
-    // Always use current site origin (works for prod and local)
-    const redirectTo = `${window.location.origin}/auth/callback`;
+    // Use canonical origin in prod, localhost in dev
+    const redirectTo = `${getAppOrigin()}/auth/callback`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
