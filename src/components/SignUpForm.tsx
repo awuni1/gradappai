@@ -9,6 +9,7 @@ import authService from '@/services/authService';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, X, Loader2, Mail, Lock, User, Sparkles } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { getAppOrigin } from '@/utils/redirectHelper';
 
 interface SignUpFormProps {
   onSuccess?: () => void;
@@ -113,7 +114,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onToggleForm, showTo
       setIsSubmitting(true);
       
       // Set up the redirect URL for email confirmation
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = `${getAppOrigin()}/`;
       
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,

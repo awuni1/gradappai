@@ -72,6 +72,18 @@
                 configDiv.innerHTML += '<div class="error">⚠️ URL mismatch: This test should be run on https://www.gradappai.com for production testing</div>';
             }
         }
+        // Helper: pick correct app origin for redirects
+        function getAppOrigin() {
+            try {
+                const host = window.location.hostname;
+                if (host === 'localhost' || host === '127.0.0.1') {
+                    return window.location.origin;
+                }
+                return 'https://www.gradappai.com';
+            } catch {
+                return 'https://www.gradappai.com';
+            }
+        }
         
         async function testGoogleOAuth() {
             try {
@@ -79,7 +91,7 @@
                 
                 const redirectUrl = window.location.hostname === 'localhost' 
                     ? `${window.location.origin}/debug-oauth-test.html`
-                    : 'https://www.gradappai.com/auth/callback';
+                    : `${getAppOrigin()}/auth/callback`;
                 
                 log(`Using redirect URL: ${redirectUrl}`);
                 
@@ -116,7 +128,7 @@
                 
                 const redirectUrl = window.location.hostname === 'localhost' 
                     ? `${window.location.origin}/debug-oauth-test.html`
-                    : 'https://www.gradappai.com/auth/callback';
+                    : `${getAppOrigin()}/auth/callback`;
                 
                 const { data, error } = await supabase.auth.signInWithOAuth({
                     provider: 'github',

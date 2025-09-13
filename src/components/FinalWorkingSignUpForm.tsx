@@ -45,7 +45,11 @@ const FinalWorkingSignUpForm: React.FC<FinalWorkingSignUpFormProps> = ({
             last_name: formData.lastName,
             role: selectedRole || 'applicant'
           },
-          emailRedirectTo: `${window.location.origin}/auth`
+          emailRedirectTo: `${(() => {
+            if (typeof window === 'undefined') return 'https://www.gradappai.com';
+            const host = window.location.hostname;
+            return (host === 'localhost' || host === '127.0.0.1') ? window.location.origin : 'https://www.gradappai.com';
+          })()}/auth`
         }
       });
 

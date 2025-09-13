@@ -12,6 +12,22 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, KeyRound } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
+// Helper: pick correct app origin for redirects
+// - On localhost, keep current origin for dev
+// - On any deployed host, force the canonical production domain
+function getAppOrigin(): string {
+  try {
+    if (typeof window === 'undefined') return 'https://www.gradappai.com';
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return window.location.origin;
+    }
+    return 'https://www.gradappai.com';
+  } catch {
+    return 'https://www.gradappai.com';
+  }
+}
+
 interface SignInFormProps {
   onSuccess?: () => void;
   onToggleForm?: () => void;
@@ -58,7 +74,7 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSuccess, onToggleForm, showTo
     try {
       setIsResettingPassword(true);
       const { error } = await supabase.auth.resetPasswordForEmail(emailToReset, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${getAppOrigin()}/reset-password`,
       });
 
       if (error) {throw error;}

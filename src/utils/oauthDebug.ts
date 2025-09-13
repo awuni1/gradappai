@@ -3,6 +3,22 @@
  * Add this to your browser console on production to debug OAuth issues
  */
 
+// Helper: pick correct app origin for redirects
+// - On localhost, keep current origin for dev
+// - On any deployed host, force the canonical production domain
+function getAppOrigin(): string {
+  try {
+    if (typeof window === 'undefined') return 'https://www.gradappai.com';
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return window.location.origin;
+    }
+    return 'https://www.gradappai.com';
+  } catch {
+    return 'https://www.gradappai.com';
+  }
+}
+
 export const debugOAuth = {
   // Check current configuration
   checkConfig: () => {
@@ -13,7 +29,7 @@ export const debugOAuth = {
       supabaseURL: import.meta.env?.VITE_SUPABASE_URL,
       environment: import.meta.env?.VITE_APP_ENV || 'unknown',
       expectedProduction: 'https://www.gradappai.com',
-      expectedCallback: `${window.location.origin}/auth/callback`
+      expectedCallback: `${getAppOrigin()}/auth/callback`
     };
     
     console.table(config);
@@ -43,7 +59,7 @@ export const debugOAuth = {
         const result = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
+            redirectTo: `${getAppOrigin()}/auth/callback`,
             queryParams: {
               prompt: 'select_account'
             }
@@ -69,7 +85,7 @@ export const debugOAuth = {
         const result = await supabase.auth.signInWithOAuth({
           provider: 'github',
           options: {
-            redirectTo: `${window.location.origin}/auth/callback`
+            redirectTo: `${getAppOrigin()}/auth/callback`
           }
         });
         
