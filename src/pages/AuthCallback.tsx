@@ -19,7 +19,63 @@ const AuthCallback: React.FC = () => {
 
   const handleAuthCallback = async () => {
     try {
-      // Get the session from URL hash or search params
+      // First, check if there are OAuth errors in the URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlError = urlParams.get('error');
+      const errorCode = urlParams.get('error_code');
+      const errorDescription = urlParams.get('error_description');
+
+      if (urlError) {
+        console.error('OAuth URL Error:', { urlError, errorCode, errorDescription });
+        setStatus('error');
+        
+        let userFriendlyMessage = 'Authentication failed. Please try again.';
+        
+        if (urlError === 'invalid_request' && errorCode === 'bad_oauth_state') {
+          userFriendlyMessage = 'OAuth session expired or invalid. This may happen if you\'re redirecting to the wrong domain. Please try signing in again.';
+        } else if (urlError === 'access_denied') {
+          userFriendlyMessage = 'You declined to authorize the application. Please try again if you want to sign in.';
+        } else if (urlError === 'invalid_request') {
+          userFriendlyMessage = 'Invalid OAuth request. This may be due to a configuration mismatch. Please try again.';
+        } else if (errorDescription) {
+          userFriendlyMessage = decodeURIComponent(errorDescription.replace(/\+/g, ' '));
+        }
+        
+        setMessage(userFriendlyMessage);
+        
+        toast({
+          variant: "destructive",
+          title: "OAuth Error",
+          description: userFriendlyMessage,
+        });
+        
+        // Clear the error parameters from URL and redirect to sign-in
+        setTimeout(() => {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          navigate('/auth');
+        }, 4000);
+        return;
+      }
+
+      // Try to handle the OAuth callback by checking for auth code/token in URL
+      const { data, error: callbackError } = await supabase.auth.getSessionFromUrl();
+      
+      if (callbackError) {
+        console.error('OAuth callback processing error:', callbackError);
+        setStatus('error');
+        setMessage('Failed to process authentication callback. Please try again.');
+        
+        toast({
+          variant: "destructive",
+          title: "Callback Processing Error",
+          description: callbackError.message || "Failed to process OAuth response",
+        });
+        
+        setTimeout(() => navigate('/auth'), 3000);
+        return;
+      }
+
+      // Get the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
