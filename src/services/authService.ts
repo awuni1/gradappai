@@ -534,15 +534,13 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
     try {
-      // Use production URL for callback
-      const baseUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3000' 
-        : 'https://www.gradappai.com';
+    // Always use current site origin (works for prod and local)
+    const redirectTo = `${window.location.origin}/auth/callback`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${baseUrl}/auth/callback`,
+      redirectTo,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
@@ -561,15 +559,13 @@ class AuthService {
    */
   async signInWithGitHub(): Promise<{ error: AuthError | null }> {
     try {
-      // Use production URL for callback
-      const baseUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3000' 
-        : 'https://www.gradappai.com';
+    // Always use current site origin (works for prod and local)
+    const redirectTo = `${window.location.origin}/auth/callback`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${baseUrl}/auth/callback`,
+      redirectTo,
         },
       });
 
