@@ -62,17 +62,42 @@ const AuthCallback: React.FC = () => {
       // Try to handle the OAuth callback by checking for auth code/token in URL
       // Prefer code exchange (PKCE) first, then fallback to hash parsing
       let callbackError: any = null;
-      try {
-        const { data, error } = await (supabase.auth as any).exchangeCodeForSession?.(window.location.href);
-        if (error) callbackError = error;
-      } catch (e) {
-        callbackError = e;
+      let processed = false;
+
+      // 1) PKCE/code flow
+      if (typeof (supabase.auth as any).exchangeCodeForSession === 'function') {
+        try {
+          const { error } = await (supabase.auth as any).exchangeCodeForSession(window.location.href);
+          if (!error) {
+            processed = true;
+          } else {
+            callbackError = error;
+          }
+        } catch (e) {
+          callbackError = e;
+        }
       }
 
-      if (callbackError) {
-        // Fallback to getSessionFromUrl for hash-based flows
-        const { error } = await supabase.auth.getSessionFromUrl();
-        callbackError = error;
+      // 2) Fallback for legacy hash-based flows
+      if (!processed) {
+        const getSessionFromUrl = (supabase.auth as any).getSessionFromUrl;
+        if (typeof getSessionFromUrl === 'function') {
+          try {
+            const { error } = await getSessionFromUrl();
+            if (!error) processed = true; else callbackError = error;
+          } catch (e) {
+            callbackError = e;
+          }
+        } else if (hashParams.get('access_token') && hashParams.get('refresh_token')) {
+          try {
+            const access_token = hashParams.get('access_token') as string;
+            const refresh_token = hashParams.get('refresh_token') as string;
+            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (!error) processed = true; else callbackError = error;
+          } catch (e) {
+            callbackError = e;
+          }
+        }
       }
       
       if (callbackError) {
@@ -90,7 +115,12 @@ const AuthCallback: React.FC = () => {
         return;
       }
 
-  // Get the current session
+      // Clean the URL of auth params to avoid re-processing on reload
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch {}
+
+      // Get the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
