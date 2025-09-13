@@ -19,6 +19,14 @@ const AuthCallback: React.FC = () => {
 
   const handleAuthCallback = async () => {
     try {
+      // Helper: timeout wrapper to avoid hanging
+      const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+        return Promise.race([
+          promise,
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms))
+        ]) as Promise<T>;
+      };
+
       // First, check if there are OAuth errors in the URL parameters (query or hash)
       const urlParams = new URLSearchParams(window.location.search);
       const hash = window.location.hash || '';
@@ -67,7 +75,11 @@ const AuthCallback: React.FC = () => {
       // 1) PKCE/code flow
       if (typeof (supabase.auth as any).exchangeCodeForSession === 'function') {
         try {
-          const { error } = await (supabase.auth as any).exchangeCodeForSession(window.location.href);
+          const { error } = await withTimeout(
+            (supabase.auth as any).exchangeCodeForSession(window.location.href),
+            6000,
+            'exchangeCodeForSession'
+          );
           if (!error) {
             processed = true;
           } else {
@@ -83,7 +95,7 @@ const AuthCallback: React.FC = () => {
         const getSessionFromUrl = (supabase.auth as any).getSessionFromUrl;
         if (typeof getSessionFromUrl === 'function') {
           try {
-            const { error } = await getSessionFromUrl();
+            const { error } = await withTimeout(getSessionFromUrl(), 6000, 'getSessionFromUrl');
             if (!error) processed = true; else callbackError = error;
           } catch (e) {
             callbackError = e;
@@ -92,7 +104,11 @@ const AuthCallback: React.FC = () => {
           try {
             const access_token = hashParams.get('access_token') as string;
             const refresh_token = hashParams.get('refresh_token') as string;
-            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+            const { error } = await withTimeout(
+              supabase.auth.setSession({ access_token, refresh_token }),
+              6000,
+              'setSession'
+            );
             if (!error) processed = true; else callbackError = error;
           } catch (e) {
             callbackError = e;
@@ -121,7 +137,11 @@ const AuthCallback: React.FC = () => {
       } catch {}
 
       // Get the current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await withTimeout(
+        supabase.auth.getSession(),
+        6000,
+        'getSession'
+      );
       
       if (sessionError) {
         console.error('Session error:', sessionError);
