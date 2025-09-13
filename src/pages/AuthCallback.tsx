@@ -174,24 +174,26 @@ const AuthCallback: React.FC = () => {
       
       const user = session.user;
       
-      // Create user profile if it doesn't exist (for OAuth users)
+      // Create user profile if it doesn't exist (for OAuth users) – non-blocking with timeout
       try {
-        const { profile } = await authService.getUserProfile(user.id);
-        
-        if (!profile) {
-          // Create profile for new OAuth user
-          const profileData = {
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-            email: user.email || '',
-            profile_picture_url: user.user_metadata?.avatar_url || '',
-            role: 'applicant' // Default role, can be changed later
-          };
-          
-          await authService.createUserProfile(user.id, profileData);
-        }
+        await withTimeout(
+          (async () => {
+            const { profile } = await authService.getUserProfile(user.id);
+            if (!profile) {
+              const profileData = {
+                full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                email: user.email || '',
+                profile_picture_url: user.user_metadata?.avatar_url || '',
+                role: 'applicant'
+              };
+              await authService.createUserProfile(user.id, profileData);
+            }
+          })(),
+          5000,
+          'createUserProfile'
+        );
       } catch (error) {
-        console.warn('Could not create/fetch user profile:', error);
-        // Don't block the authentication flow for this
+        console.warn('Profile setup skipped (timeout or error):', error);
       }
 
       toast({
@@ -199,13 +201,16 @@ const AuthCallback: React.FC = () => {
         description: "You've successfully signed in with Google.",
       });
 
-      // Get appropriate redirect URL based on user status
+      // Get appropriate redirect URL based on user status (timeouts to avoid hanging)
       try {
-        const redirectUrl = await authService.getPostAuthRedirect(user.id);
+        const redirectUrl = await withTimeout(
+          authService.getPostAuthRedirect(user.id),
+          5000,
+          'getPostAuthRedirect'
+        );
         navigate(redirectUrl);
       } catch (error) {
-        console.warn('Could not determine redirect URL:', error);
-        // Default fallback
+        console.warn('Redirect decision timed out or failed, defaulting to dashboard:', error);
         navigate('/dashboard');
       }
 
