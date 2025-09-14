@@ -17,6 +17,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     // Prefer code (PKCE) flow to avoid hash tokens in URL
     flowType: 'pkce',
     // We'll handle the callback manually in our AuthCallback route
-    detectSessionInUrl: false,
+    detectSessionInUrl: true,
   },
 });
