@@ -232,9 +232,9 @@ class CVAnalysisService {
           achievements: analysisResult.awards || [],
           strengths: analysisResult.recommendations?.strengthAreas || [],
           areas_for_improvement: analysisResult.recommendations?.weaknessAreas || [],
-          match_score: analysisResult.metadata.confidenceScore,
-          confidence_score: analysisResult.metadata.confidenceScore,
-          completeness_score: analysisResult.metadata.completenessScore,
+          // match_score: analysisResult.metadata.confidenceScore,
+          confidence_score: Math.min(9.99, analysisResult.metadata.confidenceScore / 10),
+completeness_score: Math.min(9.99, analysisResult.metadata.completenessScore / 10),
           analysis_summary: 'CV analyzed using AI',
           recommendations: analysisResult.recommendations?.suggestedImprovements || [],
           processing_status: 'completed',
@@ -451,173 +451,124 @@ class CVAnalysisService {
    * Update user profile with extracted CV data using actual academic_profiles schema
    */
   private async updateUserProfileFromCV(userId: string, analysisResult: any): Promise<void> {
-    try {
-      // Prepare comprehensive academic profile data using actual schema fields
-      const latestEducation = analysisResult.education?.[0]; // Most recent education
-      const personalInfo = analysisResult.personalInfo || {};
-      
-      const updateData: any = {
-        user_id: userId,
-        
-        // Current academic status (using actual column names)
-        current_institution: latestEducation?.institution,
-        current_degree: latestEducation?.degree,
-        current_field_of_study: latestEducation?.field,
-        graduation_year: latestEducation?.graduationYear ? parseInt(latestEducation.graduationYear) : null,
-        current_gpa: latestEducation?.gpa ? parseFloat(latestEducation.gpa) : null,
-        
-        // Previous education as JSONB (actual schema)
-        previous_education: analysisResult.education?.slice(1) || [], // All except current/latest
-        
-        // Awards and recognition as text arrays (actual schema)
-        honors_awards: analysisResult.awards?.map((award: any) => award.title || award.name || award) || [],
-        scholarships: analysisResult.scholarships || [],
-        
-        // Publications as text array (actual schema)
-        publications: analysisResult.publications?.map((pub: any) => pub.title || pub) || [],
-        conferences_attended: analysisResult.conferences || [],
-        presentations_given: analysisResult.presentations || [],
-        
-        // Experience as text fields (actual schema)
-        research_experience: analysisResult.researchExperience?.map((exp: any) => 
-          typeof exp === 'string' ? exp : `${exp.title || exp.position} at ${exp.organization || exp.institution}`
-        ).join('; ') || null,
-        work_experience: analysisResult.experience?.map((exp: any) => 
-          typeof exp === 'string' ? exp : `${exp.title || exp.position} at ${exp.company || exp.organization}`
-        ).join('; ') || null,
-        volunteer_experience: analysisResult.volunteerExperience?.join('; ') || null,
-        leadership_experience: analysisResult.leadershipExperience?.join('; ') || null,
-        
-        // Skills as text arrays (actual schema)
-        technical_skills: analysisResult.skills?.technical || analysisResult.skills?.filter((s: any) => s.type === 'technical')?.map((s: any) => s.name || s) || [],
-        soft_skills: analysisResult.skills?.soft || analysisResult.skills?.filter((s: any) => s.type === 'soft')?.map((s: any) => s.name || s) || [],
-        programming_languages: analysisResult.skills?.programming || [],
-        tools_and_technologies: analysisResult.skills?.tools || [],
-        
-        // Languages as JSONB (actual schema)
-        languages: analysisResult.languages || [],
-        
-        // Certifications as text array (actual schema)
-        certifications: analysisResult.certifications?.map((cert: any) => cert.name || cert.title || cert) || [],
-        
-        // Research interests as text array (actual schema)
-        research_interests: analysisResult.researchAreas || [],
-        
-        // Career information
-        career_goals: analysisResult.careerGoals || null,
-        target_industries: analysisResult.targetIndustries || [],
-        preferred_work_locations: analysisResult.preferredLocations || [],
-        
-        // CV tracking
-        last_cv_upload: new Date().toISOString().split('T')[0],
-        cv_analysis_score: analysisResult.metadata?.confidenceScore ? parseFloat(analysisResult.metadata.confidenceScore) : null,
-        profile_strength_score: Math.min(100, Math.round((analysisResult.metadata?.confidenceScore || 50) + 25)), // Convert confidence to strength score
-        updated_at: new Date().toISOString()
-      };
+  try {
+    const latestEducation = analysisResult.education?.[0]; // Most recent education
+    const personalInfo = analysisResult.personalInfo || {};
 
-      // Remove null/undefined values and empty arrays
-      Object.keys(updateData).forEach(key => {
-        const value = updateData[key];
-        if (value === null || value === undefined || value === 'null' || 
-            (Array.isArray(value) && value.length === 0) ||
-            (typeof value === 'string' && value.trim() === '')) {
-          delete updateData[key];
-        }
-      });
+    const updateData: any = {
+      user_id: userId,
 
-      console.log('📝 Updating academic profile with actual schema data:', {
+      // Academic info
+      current_institution: latestEducation?.institution?.trim(),
+      current_degree: latestEducation?.degree?.trim(),
+      current_field_of_study: latestEducation?.field?.trim(),
+      graduation_year: latestEducation?.graduationYear
+        ? parseInt(latestEducation.graduationYear)
+        : null,
+      current_gpa: latestEducation?.gpa
+        ? Math.min(4.0, Math.max(0, parseFloat(latestEducation.gpa)))
+        : null,
+
+      // Previous education as JSONB
+      previous_education: analysisResult.education?.slice(1) || [],
+
+      // Awards
+      honors_awards: analysisResult.awards?.map((a: any) => a.title || a.name || a) || [],
+      scholarships: analysisResult.scholarships || [],
+
+      // Publications and conferences
+      publications: analysisResult.publications?.map((p: any) => p.title || p) || [],
+      conferences_attended: analysisResult.conferences || [],
+      presentations_given: analysisResult.presentations || [],
+
+      // Experience
+      research_experience: analysisResult.researchExperience
+        ?.map((exp: any) =>
+          typeof exp === 'string'
+            ? exp
+            : `${exp.title || exp.position || ''} at ${exp.organization || exp.institution || ''}`
+        )
+        .join('; ') || null,
+      work_experience: analysisResult.experience
+        ?.map((exp: any) =>
+          typeof exp === 'string'
+            ? exp
+            : `${exp.title || exp.position || ''} at ${exp.company || exp.organization || ''}`
+        )
+        .join('; ') || null,
+      volunteer_experience: analysisResult.volunteerExperience?.join('; ') || null,
+      leadership_experience: analysisResult.leadershipExperience?.join('; ') || null,
+
+      // Skills
+      technical_skills:
+        analysisResult.skills?.technical ||
+        analysisResult.skills?.filter((s: any) => s.type === 'technical')?.map((s: any) => s.name || s) ||
+        [],
+      soft_skills:
+        analysisResult.skills?.soft ||
+        analysisResult.skills?.filter((s: any) => s.type === 'soft')?.map((s: any) => s.name || s) ||
+        [],
+      programming_languages: analysisResult.skills?.programming || [],
+      tools_and_technologies: analysisResult.skills?.tools || [],
+
+      // Languages
+      languages: analysisResult.languages || [],
+
+      // Certifications
+      certifications: analysisResult.certifications?.map((c: any) => c.name || c.title || c) || [],
+
+      // Research interests
+      research_interests: analysisResult.researchAreas || [],
+
+      // Career info
+      career_goals: analysisResult.careerGoals || null,
+      target_industries: analysisResult.targetIndustries || [],
+      preferred_work_locations: analysisResult.preferredLocations || [],
+
+      // CV tracking
+      last_cv_upload: new Date().toISOString().split('T')[0],
+      cv_analysis_score: analysisResult.metadata?.confidenceScore
+        ? Math.min(99.99, parseFloat(analysisResult.metadata.confidenceScore))
+        : null,
+      profile_strength_score: analysisResult.metadata?.confidenceScore
+        ? Math.min(100, Math.round((parseFloat(analysisResult.metadata.confidenceScore) || 50) + 25))
+        : 50,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Remove null, undefined, empty strings, or empty arrays
+    Object.keys(updateData).forEach((key) => {
+      const value = updateData[key];
+      if (
+        value === null ||
+        value === undefined ||
+        value === 'null' ||
+        (Array.isArray(value) && value.length === 0) ||
+        (typeof value === 'string' && value.trim() === '')
+      ) {
+        delete updateData[key];
+      }
+    });
+
+    console.log(
+      '📝 Upserting academic profile:',
+      {
         userId,
         fieldsUpdated: Object.keys(updateData).length,
-        hasEducation: Boolean(latestEducation),
-        hasPublications: Boolean(analysisResult.publications?.length),
-        hasExperience: Boolean(analysisResult.experience?.length),
-        hasSkills: Boolean(analysisResult.skills?.length),
-        hasResearchInterests: Boolean(analysisResult.researchAreas?.length)
-      });
-
-      await supabase
-        .from('academic_profiles')
-        .upsert(updateData, { onConflict: 'user_id' });
-
-      // Update research interests
-      if (analysisResult.researchAreas && analysisResult.researchAreas.length > 0) {
-        // First, clear existing research interests
-        await supabase
-          .from('user_research_interests')
-          .delete()
-          .eq('user_id', userId);
-
-        // Add new research interests
-        for (const area of analysisResult.researchAreas) {
-          // Ensure the research interest exists (using current schema)
-          const { data: existingInterest } = await supabase
-            .from('research_interests')
-            .select('id')
-            .eq('name', area)
-            .single();
-
-          let interestId;
-          if (existingInterest) {
-            interestId = existingInterest.id;
-          } else {
-            // Create new research interest
-            const { data: newInterest } = await supabase
-              .from('research_interests')
-              .insert({ 
-                name: area,
-                category: 'cv_extracted',
-                description: `Research interest extracted from CV analysis`
-              })
-              .select('id')
-              .single();
-            interestId = newInterest?.id;
-          }
-
-          if (interestId) {
-            await supabase
-              .from('user_research_interests')
-              .insert({
-                user_id: userId,
-                research_interest_id: interestId
-              });
-          }
-        }
       }
+    );
 
-      // Note: No longer using resumes table - data is stored in academic_profiles and cv_analysis tables
-      console.log('✅ Academic profile updated comprehensively from CV analysis');
-      
-      // Generate university recommendations based on CV analysis
-      try {
-        console.log('🎯 Generating university recommendations from CV analysis...');
-        const universityMatchingService = await import('./universityMatchingService');
-        
-        const matchRequest = {
-          userProfile: {
-            gpa: analysisResult.education?.[0]?.gpa || 3.5,
-            testScores: {},
-            researchInterests: analysisResult.researchAreas || [],
-            targetDegree: analysisResult.education?.[0]?.field || 'Computer Science',
-            preferences: {
-              countries: ['United States', 'Canada', 'United Kingdom'],
-              maxTuition: 100000,
-              minAdmissionRate: 0.1
-            }
-          },
-          cvAnalysis: analysisResult
-        };
+    await supabase
+      .from('academic_profiles')
+      .upsert(updateData, { onConflict: ['user_id'] });
 
-        const { matches, facultyRecommendations } = await universityMatchingService.universityMatchingService.generateMatches(userId, matchRequest);
-        console.log(`✅ Generated ${matches.length} university matches and ${facultyRecommendations.length} faculty recommendations from CV analysis`);
-      } catch (matchingError) {
-        console.warn('⚠️ Could not generate university recommendations from CV:', matchingError);
-        // Don't fail the CV analysis if university matching fails
-      }
-    } catch (error) {
-      console.error('❌ Error updating user profile from CV:', error);
-      // Don't throw error - this shouldn't fail the CV analysis
-    }
+    console.log('✅ Academic profile updated successfully');
+
+  } catch (error) {
+    console.error('❌ Error updating user profile from CV:', error);
   }
+}
+
 
   /**
    * Get user profile data enhanced with CV analysis

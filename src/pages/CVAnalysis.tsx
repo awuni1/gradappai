@@ -158,12 +158,12 @@
 //         return;
 //       }
       
-//       const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-//       if (!allowedTypes.includes(file.type)) {
-//         console.warn('⚠️ File type not in allowed list:', file.type);
-//         // Allow the file anyway but warn - some files might not have proper MIME types
-//         console.log('📝 Attempting to proceed with file despite type mismatch');
-//       }
+//      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+//      if (!allowedTypes.includes(file.type)) {
+//        console.warn('⚠️ File type not in allowed list:', file.type);
+//        // Allow the file anyway but warn - some files might not have proper MIME types
+//        console.log('📝 Attempting to proceed with file despite type mismatch');
+//      }
       
 //       console.log('✅ File selected successfully:', {
 //         name: file.name,
@@ -179,17 +179,17 @@
 //   }, []);
 
 //   const handleUploadAndAnalyze = async () => {
-//     if (!selectedFile) return;
+//     if (!selectedFile || !user) return;
 
 //     setIsUploading(true);
 //     setIsAnalyzing(true);
 //     setError(null);
 //     setUploadProgress(0);
-//     setProcessingStage('Preparing analysis...');
+//     setProcessingStage('Uploading and analyzing CV...');
 
 //     // Add timeout to prevent infinite loading
 //     const timeoutId = setTimeout(() => {
-//       setError('ChatGPT analysis timed out after 30 seconds. Please try again.');
+//       setError('CV analysis timed out after 30 seconds. Please try again.');
 //       setIsAnalyzing(false);
 //       setIsUploading(false);
 //       setUploadProgress(0);
@@ -197,51 +197,65 @@
 //     }, 30000); // 30 second timeout for ChatGPT
 
 //     try {
-//       console.log('🚀 Starting CV analysis process...');
-//       console.log('📁 Selected file details:', {
-//         name: selectedFile.name,
-//         size: `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`,
-//         type: selectedFile.type,
-//         lastModified: new Date(selectedFile.lastModified).toISOString()
-//       });
+//       // Step 1: Upload, parse, analyze, and store in DB
+//       const result = await cvAnalysisService.uploadAndAnalyzeCV(selectedFile, user.id);
 
-//       // Parse the document first
-//       setProcessingStage('Parsing document...');
-//       setUploadProgress(30);
-//       const { documentParserService } = await import('@/services/documentParserService');
-//       const parseResult = await documentParserService.parseDocument(selectedFile);
-
-//       if (parseResult.error) {
-//         if (parseResult.error.code === 'PDF_NO_TEXT_CONTENT') {
-//           setError(
-//             `❌ PDF Parsing Error: ${parseResult.error.message}\n\nThis PDF appears to be image-based or scanned. Please use:\n• A PDF with selectable text\n• Convert your PDF to Word (.docx) or text (.txt) instead.`
-//           );
-//           setUploadProgress(0);
-//           setProcessingStage('');
-//           setIsUploading(false);
-//           setIsAnalyzing(false);
-//           return;
-//         } else {
-//           setError(`Document parsing failed: ${parseResult.error.message}`);
-//           setUploadProgress(0);
-//           setProcessingStage('');
-//           setIsUploading(false);
-//           setIsAnalyzing(false);
-//           return;
-//         }
+//       if (!result.success) {
+//         setError(result.error || 'CV analysis failed.');
+//         setIsUploading(false);
+//         setIsAnalyzing(false);
+//         setProcessingStage('');
+//         clearTimeout(timeoutId);
+//         return;
 //       }
 
-//       const parsedDocument = parseResult.data!;
-//       // ...existing code for validation and analysis...
+//       setProcessingStage('Fetching analysis results...');
+//       setUploadProgress(90);
+
+//       // Step 2: Fetch stored analysis from DB
+//       const storedAnalysis = await cvAnalysisService.getStoredAnalysis(user.id, result.analysisId);
+
+//       if (!storedAnalysis) {
+//         setError('Could not retrieve analysis results from database.');
+//         setIsUploading(false);
+//         setIsAnalyzing(false);
+//         setProcessingStage('');
+//         clearTimeout(timeoutId);
+//         return;
+//       }
+
+//       // Step 3: Display the fetched analysis
+//       setAnalysisResult({
+//         personalInfo: storedAnalysis.personal_info,
+//         education: storedAnalysis.education,
+//         experience: storedAnalysis.experience,
+//         skills: storedAnalysis.skills,
+//         projects: storedAnalysis.extracted_data?.projects || [],
+//         publications: storedAnalysis.extracted_data?.publications || [],
+//         certifications: storedAnalysis.extracted_data?.certifications || [],
+//         awards: storedAnalysis.extracted_data?.achievements || [],
+//         researchAreas: storedAnalysis.research_areas,
+//         recommendations: storedAnalysis.recommendations,
+//         metadata: {
+//           analysisDate: storedAnalysis.created_at,
+//           confidenceScore: storedAnalysis.confidence_score,
+//           completenessScore: storedAnalysis.completeness_score,
+//           qualityIssues: []
+//         }
+//       });
+
+//       setUploadProgress(100);
+//       setProcessingStage('Analysis complete!');
 //     } catch (error) {
-//       setError(`CV analysis failed: ${error instanceof Error ? error.message : String(error)}`);
-//       setUploadProgress(0);
-//       setProcessingStage('');
+//       setError('CV analysis failed: ' + (error instanceof Error ? error.message : String(error)));
+//     } finally {
 //       setIsUploading(false);
 //       setIsAnalyzing(false);
-//     } finally {
 //       clearTimeout(timeoutId);
-//       // ...existing code...
+//       setTimeout(() => {
+//         setUploadProgress(0);
+//         setProcessingStage('');
+//       }, 3000);
 //     }
 //   };
 
@@ -1198,35 +1212,70 @@ export default function CVAnalysis() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [processingStage, setProcessingStage] = useState<string>('');
 
-//   // Get user authentication state (optional for CV analysis)
-//   useEffect(() => {
-//     const getUser = async () => {
-//       try {
-//         const { data: { user }, error } = await supabase.auth.getUser();
-//         if (error) {
-//           console.warn('Auth error in CV Analysis:', error);
-//         }
-//         setUser(user);
-//         setUserLoading(false);
-//       } catch (error) {
-//         console.warn('Failed to get user in CV Analysis:', error);
-//         setUser(null);
-//         setUserLoading(false);
-//       }
-//     };
+  // Get user authentication state (optional for CV analysis)
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+          console.warn('Auth error in CV Analysis:', error);
+        }
+        setUser(user);
+        setUserLoading(false);
+      } catch (error) {
+        console.warn('Failed to get user in CV Analysis:', error);
+        setUser(null);
+        setUserLoading(false);
+      }
+    };
     
-//     getUser();
+    getUser();
 
-//     // Listen for auth changes
-//     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-//       setUser(session?.user ?? null);
-//       setUserLoading(false);
-//     });
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setUserLoading(false);
+    });
 
-//     return () => subscription.unsubscribe();
-//   }, []);
+    return () => subscription.unsubscribe();
+  }, []);
 
-//   // Demo analysis removed - CV analysis now requires real authentication and AI processing
+  // Fetch latest analysis for the user
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchLatestAnalysis = async () => {
+      try {
+        const analyses = await cvAnalysisService.getUserCVAnalyses(user.id);
+        if (analyses && analyses.length > 0) {
+          // Show the most recent analysis
+          const latest = analyses.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+          setAnalysisResult({
+            personalInfo: latest.personal_info,
+            education: latest.education,
+            experience: latest.experience,
+            skills: latest.skills,
+            projects: latest.extracted_data?.projects || [],
+            publications: latest.extracted_data?.publications || [],
+            certifications: latest.extracted_data?.certifications || [],
+            awards: latest.extracted_data?.achievements || [],
+            researchAreas: latest.research_areas,
+            recommendations: latest.recommendations,
+            metadata: {
+              analysisDate: latest.created_at,
+              confidenceScore: latest.confidence_score,
+              completenessScore: latest.completeness_score,
+              qualityIssues: []
+            }
+          });
+        }
+      } catch (err) {
+        // Optionally show error
+      }
+    };
+
+    fetchLatestAnalysis();
+  }, [user]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1271,85 +1320,18 @@ export default function CVAnalysis() {
     }
   }, []);
 
-//   const handleUploadAndAnalyze = async () => {
-//     if (!selectedFile) return;
-
-//     setIsUploading(true);
-//     setIsAnalyzing(true);
-//     setError(null);
-//     setUploadProgress(0);
-//     setProcessingStage('Preparing analysis...');
-
-//     // Add timeout to prevent infinite loading
-//     const timeoutId = setTimeout(() => {
-//       setError('ChatGPT analysis timed out after 30 seconds. Please try again.');
-//       setIsAnalyzing(false);
-//       setIsUploading(false);
-//       setUploadProgress(0);
-//       setProcessingStage('');
-//     }, 30000); // 30 second timeout for ChatGPT
-
-//     try {
-//       console.log('🚀 Starting CV analysis process...');
-//       console.log('📁 Selected file details:', {
-//         name: selectedFile.name,
-//         size: `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`,
-//         type: selectedFile.type,
-//         lastModified: new Date(selectedFile.lastModified).toISOString()
-//       });
-
-//       // Parse the document first
-//       setProcessingStage('Parsing document...');
-//       setUploadProgress(30);
-//       const { documentParserService } = await import('@/services/documentParserService');
-//       const parseResult = await documentParserService.parseDocument(selectedFile);
-
-//       if (parseResult.error) {
-//         if (parseResult.error.code === 'PDF_NO_TEXT_CONTENT') {
-//           setError(
-//             `❌ PDF Parsing Error: ${parseResult.error.message}\n\nThis PDF appears to be image-based or scanned. Please use:\n• A PDF with selectable text\n• Convert your PDF to Word (.docx) or text (.txt) instead.`
-//           );
-//           setUploadProgress(0);
-//           setProcessingStage('');
-//           setIsUploading(false);
-//           setIsAnalyzing(false);
-//           return;
-//         } else {
-//           setError(`Document parsing failed: ${parseResult.error.message}`);
-//           setUploadProgress(0);
-//           setProcessingStage('');
-//           setIsUploading(false);
-//           setIsAnalyzing(false);
-//           return;
-//         }
-//       }
-
-//       const parsedDocument = parseResult.data!;
-//       // ...existing code for validation and analysis...
-//     } catch (error) {
-//       setError(`CV analysis failed: ${error instanceof Error ? error.message : String(error)}`);
-//       setUploadProgress(0);
-//       setProcessingStage('');
-//       setIsUploading(false);
-//       setIsAnalyzing(false);
-//     } finally {
-//       clearTimeout(timeoutId);
-//       // ...existing code...
-//     }
-//   };
-
   const handleUploadAndAnalyze = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !user) return;
 
     setIsUploading(true);
     setIsAnalyzing(true);
     setError(null);
     setUploadProgress(0);
-    setProcessingStage('Preparing analysis...');
+    setProcessingStage('Uploading and analyzing CV...');
 
     // Add timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      setError('ChatGPT analysis timed out after 30 seconds. Please try again.');
+      setError('CV analysis timed out after 30 seconds. Please try again.');
       setIsAnalyzing(false);
       setIsUploading(false);
       setUploadProgress(0);
@@ -1357,103 +1339,61 @@ export default function CVAnalysis() {
     }, 30000); // 30 second timeout for ChatGPT
 
     try {
-      console.log('🚀 Starting CV analysis process...');
-      console.log('📁 Selected file details:', {
-        name: selectedFile.name,
-        size: `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`,
-        type: selectedFile.type,
-        lastModified: new Date(selectedFile.lastModified).toISOString()
-      });
+      // Step 1: Upload, parse, analyze, and store in DB
+      const result = await cvAnalysisService.uploadAndAnalyzeCV(selectedFile, user.id);
 
-      // Parse the document first
-      setProcessingStage('Parsing document...');
-      setUploadProgress(30);
-      const { documentParserService } = await import('@/services/documentParserService');
-      const parseResult = await documentParserService.parseDocument(selectedFile);
+      if (!result.success) {
+        setError(result.error || 'CV analysis failed.');
+        setIsUploading(false);
+        setIsAnalyzing(false);
+        setProcessingStage('');
+        clearTimeout(timeoutId);
+        return;
+      }
 
-      if (parseResult.error) {
-        if (parseResult.error.code === 'PDF_NO_TEXT_CONTENT') {
-          setError(
-            `❌ PDF Parsing Error: ${parseResult.error.message}\n\nThis PDF appears to be image-based or scanned. Please use:\n• A PDF with selectable text\n• Convert your PDF to Word (.docx) or text (.txt) instead.`
-          );
-          setUploadProgress(0);
-          setProcessingStage('');
-          setIsUploading(false);
-          setIsAnalyzing(false);
-          return;
-        } else {
-          setError(`Document parsing failed: ${parseResult.error.message}`);
-          setUploadProgress(0);
-          setProcessingStage('');
-          setIsUploading(false);
-          setIsAnalyzing(false);
-          return;
+      setProcessingStage('Fetching analysis results...');
+      setUploadProgress(90);
+
+      // Step 2: Fetch stored analysis from DB
+      const storedAnalysis = await cvAnalysisService.getStoredAnalysis(user.id, result.analysisId);
+
+      if (!storedAnalysis) {
+        setError('Could not retrieve analysis results from database.');
+        setIsUploading(false);
+        setIsAnalyzing(false);
+        setProcessingStage('');
+        clearTimeout(timeoutId);
+        return;
+      }
+
+      // Step 3: Display the fetched analysis
+      setAnalysisResult({
+        personalInfo: storedAnalysis.personal_info,
+        education: storedAnalysis.education,
+        experience: storedAnalysis.experience,
+        skills: storedAnalysis.skills,
+        projects: storedAnalysis.extracted_data?.projects || [],
+        publications: storedAnalysis.extracted_data?.publications || [],
+        certifications: storedAnalysis.extracted_data?.certifications || [],
+        awards: storedAnalysis.extracted_data?.achievements || [],
+        researchAreas: storedAnalysis.research_areas,
+        recommendations: storedAnalysis.recommendations,
+        metadata: {
+          analysisDate: storedAnalysis.created_at,
+          confidenceScore: storedAnalysis.confidence_score,
+          completenessScore: storedAnalysis.completeness_score,
+          qualityIssues: []
         }
-      }
+      });
 
-      const parsedDocument = parseResult.data!;
-      console.log('📄 Parsed document preview:', {
-        textPreview: parsedDocument.text?.substring(0, 200) + '...',
-        wordCount: parsedDocument.metadata?.wordCount,
-        characterCount: parsedDocument.metadata?.characterCount
-      });
-      
-      // Validate CV content
-      console.log('✅ Validating CV content...');
-      const validation = documentParserService.validateCVContent(parsedDocument.text);
-      console.log('✅ CV validation result:', validation);
-      
-      if (!validation.isValid) {
-        throw new Error(`The uploaded document does not appear to be a valid CV/Resume: ${validation.reasons.join(', ')}`);
-      }
-      
-      setUploadProgress(50);
-      setProcessingStage('ChatGPT analyzing your CV...');
-      
-      // Analyze with ChatGPT directly
-      console.log('🤖 Starting ChatGPT analysis...');
-      const { ChatGPTService } = await import('@/services/chatGptService');
-      const analysisResult = await ChatGPTService.analyzeCVContent(parsedDocument.text);
-      
-      console.log('🤖 ChatGPT analysis result:', {
-        hasResult: !!analysisResult,
-        hasPersonalInfo: !!analysisResult?.personalInfo,
-        hasEducation: !!analysisResult?.education,
-        hasExperience: !!analysisResult?.experience,
-        hasSkills: !!analysisResult?.skills,
-        resultType: typeof analysisResult
-      });
-      
       setUploadProgress(100);
       setProcessingStage('Analysis complete!');
-      setAnalysisResult(analysisResult);
-      console.log('✅ CV analysis completed without database storage')
-
     } catch (error) {
-      console.error('❌ CV Analysis failed:', error);
-      
-      // Show detailed error information
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      // Check if it's a parsing error and provide specific guidance
-      if (errorMessage.includes('Document parsing failed') || errorMessage.includes('PDF')) {
-        setError(`Document parsing failed: ${errorMessage}\n\nTip: For best results, try uploading a Word document (.docx) or text file (.txt) instead.`);
-      } else {
-        setError(`CV analysis failed: ${errorMessage}. Please check your connection and try again.`);
-      }
-      setUploadProgress(0);
-      setProcessingStage('');
-      
+      setError('CV analysis failed: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
-      // Clear timeout
-      clearTimeout(timeoutId);
-      setIsAnalyzing(false);
       setIsUploading(false);
+      setIsAnalyzing(false);
+      clearTimeout(timeoutId);
       setTimeout(() => {
         setUploadProgress(0);
         setProcessingStage('');
