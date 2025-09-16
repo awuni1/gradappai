@@ -173,9 +173,9 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onToggleForm, showTo
         // Create user profile based on selection
         const roleToAssign = selectedRole || 'applicant';
         const { error: roleError } = await authService.createUserProfile(authData.user.id, {
-          full_name: `${formData.firstName} ${formData.lastName}`,
+          full_name: `${data.firstName} ${data.lastName}`,
           role: roleToAssign,
-          email: formData.email
+          email: data.email
         });
 
         if (roleError) {
@@ -193,14 +193,16 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onToggleForm, showTo
       }
       
     } catch (_error: unknown) {
-      console.error('Sign up error:', error);
+      console.error('Sign up error:', _error);
       
       let errorMessage = "Please check your information and try again.";
       
-      if (error.message.includes('Password')) {
-        errorMessage = "Password must be at least 6 characters long.";
-      } else if (error.message.includes('Email')) {
-        errorMessage = "Please enter a valid email address.";
+      if (typeof _error === 'object' && _error !== null && 'message' in _error && typeof (_error as any).message === 'string') {
+        if ((_error as any).message.includes('Password')) {
+          errorMessage = "Password must be at least 6 characters long.";
+        } else if ((_error as any).message.includes('Email')) {
+          errorMessage = "Please enter a valid email address.";
+        }
       }
       
       toast({

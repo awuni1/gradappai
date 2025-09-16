@@ -1036,6 +1036,7 @@ export interface Database {
           updated_at: string | null
           user_id: string
           website_url: string | null
+          onboarding_completed: boolean | null 
         }
         Insert: {
           bio?: string | null
@@ -1056,6 +1057,7 @@ export interface Database {
           updated_at?: string | null
           user_id: string
           website_url?: string | null
+          onboarding_completed?: boolean | null
         }
         Update: {
           bio?: string | null
@@ -1076,6 +1078,7 @@ export interface Database {
           updated_at?: string | null
           user_id?: string
           website_url?: string | null
+          onboarding_completed?: boolean | null
         }
         Relationships: []
       }
